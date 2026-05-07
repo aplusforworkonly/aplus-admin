@@ -103,7 +103,7 @@ export async function generateMonthlyInvoices(billingMonth: string) {
       attendance: {},
       isSchoolStudent: student.is_school_student,
       chargedMaterialFees: ylaChargedStudents.has(student.id) ? ['YLE教材費'] : [],
-    });
+    } as any);
     const items = calc.calculate();
     const totalAmount = items.reduce((sum: number, i: any) => sum + i.amount, 0);
 

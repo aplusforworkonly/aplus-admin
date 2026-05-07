@@ -120,7 +120,7 @@ export default function EnrollmentTable({
           ))}
         </div>
         {classes.length > 0 && (
-          <Select value={classFilter} onValueChange={setClassFilter}>
+          <Select value={classFilter} onValueChange={(v) => setClassFilter(v ?? 'all')}>
             <SelectTrigger className="h-8 w-44 text-xs">
               <SelectValue placeholder="全部班級" />
             </SelectTrigger>

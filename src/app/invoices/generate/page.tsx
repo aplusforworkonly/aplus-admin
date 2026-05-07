@@ -104,7 +104,7 @@ export default async function GenerateInvoicesPage({
       attendance: {},
       isSchoolStudent: student.is_school_student,
       chargedMaterialFees: ylaChargedStudents.has(student.id) ? ['YLE教材費'] : [],
-    }).calculate();
+    } as any).calculate();
     const total = items.reduce((s: number, i: any) => s + i.amount, 0);
     return {
       studentId: student.id,

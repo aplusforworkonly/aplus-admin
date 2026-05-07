@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateStudent, createStudent, deactivateStudent, checkStudentConflict, createStudentAndParent, type ConflictResult } from '@/actions/students';
+import { updateStudent, createStudent, deactivateStudent, checkStudentConflict, createStudentAndParent, type ConflictResult, type StudentPayload } from '@/actions/students';
 import { unlinkParentFromStudent } from '@/actions/parents';
 import DuplicateConflictDialog from '@/components/students/DuplicateConflictDialog';
 import LinkParentDialog from '@/components/students/LinkParentDialog';
@@ -55,7 +55,7 @@ export default function StudentForm({ student, teachers = [] }: Props) {
   const [parentActionLoading, setParentActionLoading] = useState(false);
   const [pendingConflict, setPendingConflict] = useState<{
     result: Extract<ConflictResult, { status: 'conflict' }>;
-    payload: typeof defaultForm & { english_name: string | null; birth_date: string | null; id_number: string | null };
+    payload: StudentPayload;
   } | null>(null);
   const [form, setForm] = useState({
     name: student?.name ?? defaultForm.name,
