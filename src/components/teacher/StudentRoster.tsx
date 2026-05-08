@@ -78,20 +78,14 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
                 <CourseList courses={r.augustEnrollments} month="八月" />
               </div>
             </div>
-            {(r.leaveNote || r.registrationNote) && (
-              <div className="border-t pt-2 space-y-1">
-                {r.leaveNote && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">請假備註：</span>{r.leaveNote}
-                  </p>
-                )}
-                {r.registrationNote && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">其他備註：</span>{r.registrationNote}
-                  </p>
-                )}
-              </div>
-            )}
+            <div className="border-t pt-2 space-y-1">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">預填請假日期：</span>{r.leaveNote ?? '—'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">其他備註：</span>{r.registrationNote ?? '—'}
+              </p>
+            </div>
           </div>
         ))}
       </div>
