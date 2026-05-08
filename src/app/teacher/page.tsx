@@ -78,8 +78,8 @@ export default async function TeacherPage() {
   return (
     <div className="min-h-screen flex items-start justify-center bg-muted/30 pt-16 px-4 pb-16">
       <div className="w-full max-w-2xl space-y-8">
-        <div className="bg-background rounded-xl border shadow-sm p-8 space-y-6">
-          <div className="flex items-start justify-between">
+        <div className="bg-background rounded-xl border shadow-sm p-4 sm:p-8 space-y-6">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold">學生異動回報</h1>
               <p className="text-sm text-muted-foreground mt-1">
@@ -96,7 +96,7 @@ export default async function TeacherPage() {
           <TeacherLeaveForm teacherId={teacher.id} students={students} courses={courses} />
         </div>
 
-        <div className="bg-background rounded-xl border shadow-sm p-8 space-y-4">
+        <div className="bg-background rounded-xl border shadow-sm p-4 sm:p-8 space-y-4">
           <div>
             <h2 className="text-base font-semibold">我的申請與處理進度</h2>
             <p className="text-xs text-muted-foreground mt-0.5">僅供檢視，如有疑問請聯繫行政人員。</p>

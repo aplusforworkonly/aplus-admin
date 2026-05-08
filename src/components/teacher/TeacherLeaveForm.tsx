@@ -263,12 +263,12 @@ export default function TeacherLeaveForm({
         <>
           <div className="space-y-1">
             <p className="text-sm font-medium">請假日期</p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <Input
                 type="date"
                 value={leaveDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-40"
+                className="w-full sm:w-40"
                 required
               />
               <span className="text-sm text-muted-foreground">至</span>
@@ -277,7 +277,7 @@ export default function TeacherLeaveForm({
                 value={leaveDateEnd || leaveDate}
                 min={leaveDate}
                 onChange={(e) => setLeaveDateEnd(e.target.value)}
-                className="w-40"
+                className="w-full sm:w-40"
               />
             </div>
             <p className="text-xs text-muted-foreground">單日請假只填左側；連假請填起訖。</p>

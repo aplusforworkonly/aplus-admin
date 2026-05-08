@@ -55,7 +55,49 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
         </span>
       </div>
 
-      <div className="rounded-lg border overflow-hidden">
+      {/* 手機：卡片堆疊 */}
+      <div className="sm:hidden space-y-3">
+        {filtered.length === 0 && (
+          <p className="text-center text-muted-foreground py-8 text-sm">
+            {q ? '找不到符合的學生' : '目前無學生資料'}
+          </p>
+        )}
+        {filtered.map((r) => (
+          <div key={r.id} className="rounded-lg border p-4 space-y-3">
+            <div>
+              <p className="font-semibold text-base">{r.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{r.classes.join('、') || '—'}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">七月課程</p>
+                <CourseList courses={r.julyEnrollments} month="七月" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">八月課程</p>
+                <CourseList courses={r.augustEnrollments} month="八月" />
+              </div>
+            </div>
+            {(r.leaveNote || r.registrationNote) && (
+              <div className="border-t pt-2 space-y-1">
+                {r.leaveNote && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">請假備註：</span>{r.leaveNote}
+                  </p>
+                )}
+                {r.registrationNote && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">其他備註：</span>{r.registrationNote}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 桌機：Table */}
+      <div className="hidden sm:block rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

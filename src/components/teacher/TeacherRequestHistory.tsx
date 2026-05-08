@@ -51,48 +51,72 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
     return <p className="text-sm text-muted-foreground py-3">尚無紀錄。</p>;
   }
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-36">申請日期</TableHead>
-            <TableHead className="w-14">類型</TableHead>
-            <TableHead>學生 / 詳情</TableHead>
-            <TableHead>原因</TableHead>
-            <TableHead className="w-20 text-right">狀態</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => {
-            const tb = TYPE_BADGE[r.type];
-            return (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {formatDate(r.created_at)}
-                </TableCell>
-                <TableCell>
-                  <span className={`text-xs px-2 py-0.5 rounded-full border ${tb?.cls ?? ''}`}>
-                    {tb?.label ?? r.type}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm">
-                  <span className="font-medium">{r.studentName}</span>
-                  {r.detail && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{r.detail}</p>
-                  )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground max-w-48 truncate">
-                  {r.reason || '—'}
-                </TableCell>
-                <TableCell className="text-right">
-                  <StatusBadge status={r.status} />
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      {/* 手機：卡片堆疊 */}
+      <div className="sm:hidden space-y-3">
+        {rows.map((r) => {
+          const tb = TYPE_BADGE[r.type];
+          return (
+            <div key={r.id} className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs px-2 py-0.5 rounded-full border ${tb?.cls ?? ''}`}>
+                  {tb?.label ?? r.type}
+                </span>
+                <StatusBadge status={r.status} />
+              </div>
+              <p className="font-medium text-sm">{r.studentName}</p>
+              {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
+              {r.reason && <p className="text-sm text-muted-foreground">{r.reason}</p>}
+              <p className="text-xs text-muted-foreground font-mono">{formatDate(r.created_at)}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 桌機：Table */}
+      <div className="hidden sm:block rounded-lg border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-36">申請日期</TableHead>
+              <TableHead className="w-14">類型</TableHead>
+              <TableHead>學生 / 詳情</TableHead>
+              <TableHead>原因</TableHead>
+              <TableHead className="w-20 text-right">狀態</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => {
+              const tb = TYPE_BADGE[r.type];
+              return (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {formatDate(r.created_at)}
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${tb?.cls ?? ''}`}>
+                      {tb?.label ?? r.type}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <span className="font-medium">{r.studentName}</span>
+                    {r.detail && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{r.detail}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-48 truncate">
+                    {r.reason || '—'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <StatusBadge status={r.status} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
 
