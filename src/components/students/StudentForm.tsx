@@ -27,6 +27,21 @@ const TUTOR_DEPT: Record<string, string> = {
   '單上英語': '英語部',
 };
 
+const GRADE_OPTIONS = [
+  { label: '大班升小一', value: 0 },
+  { label: '小一', value: 1 },
+  { label: '小二', value: 2 },
+  { label: '小三', value: 3 },
+  { label: '小四', value: 4 },
+  { label: '小五', value: 5 },
+  { label: '小六', value: 6 },
+];
+
+function currentTWAcademicYear(): number {
+  const now = new Date();
+  return now.getFullYear() - 1911 - (now.getMonth() < 8 ? 1 : 0);
+}
+
 interface Props {
   student?: StudentWithParents;
   teachers?: TeacherOption[];
@@ -69,6 +84,17 @@ export default function StudentForm({ student, teachers = [] }: Props) {
     program_type: student?.program_type ?? defaultForm.program_type,
     main_tutor_id: student?.main_tutor_id ?? defaultForm.main_tutor_id,
   });
+
+  function handleGradeChange(gradeLabel: string | null) {
+    if (!gradeLabel) return;
+    const option = GRADE_OPTIONS.find((g) => g.label === gradeLabel);
+    if (!option) return;
+    const newYear = currentTWAcademicYear() - option.value + 1 + 1911;
+    const current = new Date(form.enrollment_date);
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    setForm((p) => ({ ...p, enrollment_date: `${newYear}-${month}-${day}` }));
+  }
 
   const visibleTutors = teachers.filter((t) => {
     const requiredDept = form.program_type ? TUTOR_DEPT[form.program_type] : null;
@@ -195,12 +221,21 @@ export default function StudentForm({ student, teachers = [] }: Props) {
               />
             </div>
             <div className="space-y-1">
-              <Label>目前年級</Label>
-              <p className="text-sm font-medium h-9 flex items-center px-3 rounded-md border bg-muted text-muted-foreground">
-                {form.enrollment_date && form.status === '就讀中'
-                  ? getGrade(form.enrollment_date)
-                  : '—'}
-              </p>
+              <Label>年級</Label>
+              <Select
+                value={form.enrollment_date && form.status === '就讀中' ? getGrade(form.enrollment_date) : ''}
+                onValueChange={handleGradeChange}
+                disabled={form.status !== '就讀中'}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GRADE_OPTIONS.map((g) => (
+                    <SelectItem key={g.value} value={g.label}>{g.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
