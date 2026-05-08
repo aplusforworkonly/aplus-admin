@@ -147,3 +147,18 @@ export async function deactivateStudent(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath('/students');
 }
+
+export async function batchAssignTutors(
+  assignments: { studentId: string; tutorId: string | null }[]
+) {
+  const supabase = createServerClient();
+  await Promise.all(
+    assignments.map((a) =>
+      supabase
+        .from('students')
+        .update({ main_tutor_id: a.tutorId || null })
+        .eq('id', a.studentId)
+    )
+  );
+  revalidatePath('/admin/roster');
+}

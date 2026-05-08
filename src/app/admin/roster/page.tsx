@@ -32,6 +32,17 @@ export default async function AdminRosterPage() {
       .order('leave_date'),
   ]);
 
+  const studentIds = (students ?? []).map((s: any) => s.id);
+
+  const { data: classData } = studentIds.length > 0
+    ? await supabase
+        .from('class_students')
+        .select('student_id')
+        .in('student_id', studentIds)
+    : { data: [] };
+
+  const assignedToClassSet = new Set((classData ?? []).map((c: any) => c.student_id));
+
   function normalizeCampus(campus: string | null): string {
     if (campus === '總校') return '文府總校';
     return campus ?? '';
@@ -101,6 +112,7 @@ export default async function AdminRosterPage() {
       leaves: leaveMap[s.id] ?? [],
       leaveNote: s.leave_note ?? null,
       registrationNote: s.registration_note ?? null,
+      hasClass: assignedToClassSet.has(s.id),
     };
   });
 

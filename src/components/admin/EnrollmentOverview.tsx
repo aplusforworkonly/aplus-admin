@@ -1,9 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { batchAssignTutors } from '@/actions/students';
 
 export type TutorOption = { id: string; name: string; campus: string };
 
@@ -21,6 +23,7 @@ export type EnrollmentRow = {
   leaves: { date: string; endDate: string | null; note: string | null }[];
   leaveNote: string | null;
   registrationNote: string | null;
+  hasClass: boolean;
 };
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
@@ -29,6 +32,18 @@ const GRADE_ORDER: Record<string, number> = {
   '大班升小一': 0, '小一': 1, '小二': 2, '小三': 3, '小四': 4, '小五': 5, '小六': 6, '已畢業': 7,
 };
 const CAMPUS_ORDER: Record<string, number> = { '文府總校': 0, '龍華校': 1, '左新校': 2 };
+
+function ProgressDot({ done, label }: { done: boolean; label: string }) {
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border ${
+      done
+        ? 'bg-green-50 text-green-700 border-green-200'
+        : 'bg-red-50 text-red-600 border-red-200'
+    }`}>
+      {done ? '✓' : '✗'} {label}
+    </span>
+  );
+}
 
 function CourseList({ courses, month }: { courses: string[]; month: '七月' | '八月' }) {
   if (courses.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
@@ -71,24 +86,45 @@ export default function EnrollmentOverview({
   const [campusFilter, setCampusFilter] = useState('all');
   const [tutorFilter, setTutorFilter] = useState('all');
   const [sortKey, setSortKey] = useState<'name' | 'grade' | 'campus'>('name');
+  const [onlyUnassigned, setOnlyUnassigned] = useState(false);
 
-  // 切換校區時重置總導師篩選
+  // Assignment mode
+  const [assignMode, setAssignMode] = useState(false);
+  const [pendingTutors, setPendingTutors] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [batchTutorId, setBatchTutorId] = useState('');
+  const [saving, startSave] = useTransition();
+
   function handleCampusChange(val: string) {
     setCampusFilter(val);
     setTutorFilter('all');
   }
 
-  // 依校區過濾後的總導師選項
+  function handleOnlyUnassignedChange(checked: boolean) {
+    setOnlyUnassigned(checked);
+    if (checked) setTutorFilter('all');
+  }
+
+  function toggleAssignMode() {
+    setAssignMode((prev) => !prev);
+    setPendingTutors({});
+    setSelected(new Set());
+    setBatchTutorId('');
+  }
+
   const filteredTutorOptions = campusFilter === 'all'
     ? tutorOptions
     : tutorOptions.filter((t) => t.campus === campusFilter);
 
   const filtered = rows
     .filter((r) => {
-      const matchSearch = !search.trim() || r.name.includes(search.trim()) || (r.englishName ?? '').toLowerCase().includes(search.trim().toLowerCase());
+      const matchSearch = !search.trim()
+        || r.name.includes(search.trim())
+        || (r.englishName ?? '').toLowerCase().includes(search.trim().toLowerCase());
       const matchCampus = campusFilter === 'all' || r.campus === campusFilter;
       const matchTutor = tutorFilter === 'all' || r.mainTutorId === tutorFilter;
-      return matchSearch && matchCampus && matchTutor;
+      const matchUnassigned = !onlyUnassigned || !r.mainTutorId;
+      return matchSearch && matchCampus && matchTutor && matchUnassigned;
     })
     .sort((a, b) => {
       if (sortKey === 'grade') return (GRADE_ORDER[a.grade] ?? 99) - (GRADE_ORDER[b.grade] ?? 99);
@@ -96,10 +132,50 @@ export default function EnrollmentOverview({
       return a.name.localeCompare(b.name, 'zh-TW');
     });
 
+  const allFilteredIds = filtered.map((r) => r.id);
+  const allChecked = allFilteredIds.length > 0 && allFilteredIds.every((id) => selected.has(id));
+  const pendingCount = Object.keys(pendingTutors).length;
+
+  function toggleAll() {
+    setSelected(allChecked ? new Set() : new Set(allFilteredIds));
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function applyBatch() {
+    if (!batchTutorId) return;
+    setPendingTutors((prev) => {
+      const next = { ...prev };
+      for (const id of selected) next[id] = batchTutorId;
+      return next;
+    });
+  }
+
+  function handleSave() {
+    const assignments = Object.entries(pendingTutors).map(([studentId, tutorId]) => ({
+      studentId,
+      tutorId: tutorId || null,
+    }));
+    startSave(async () => {
+      await batchAssignTutors(assignments);
+      setPendingTutors({});
+      setSelected(new Set());
+      setAssignMode(false);
+    });
+  }
+
   const selectCls = 'h-8 rounded-md border border-input bg-background px-2 text-sm';
 
   return (
     <div className="space-y-3">
+      {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <Input
           placeholder="搜尋學生姓名…"
@@ -107,99 +183,185 @@ export default function EnrollmentOverview({
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs h-8 text-sm"
         />
-        <select
-          className={selectCls}
-          value={campusFilter}
-          onChange={(e) => handleCampusChange(e.target.value)}
-        >
+        <select className={selectCls} value={campusFilter} onChange={(e) => handleCampusChange(e.target.value)}>
           <option value="all">全部校區</option>
-          {CAMPUSES.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
+          {CAMPUSES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
         <select
           className={selectCls}
           value={tutorFilter}
+          disabled={onlyUnassigned}
           onChange={(e) => setTutorFilter(e.target.value)}
         >
           <option value="all">全部總導師</option>
-          {filteredTutorOptions.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
+          {filteredTutorOptions.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
-        <select
-          className={selectCls}
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as 'name' | 'grade' | 'campus')}
-        >
+        <select className={selectCls} value={sortKey} onChange={(e) => setSortKey(e.target.value as 'name' | 'grade' | 'campus')}>
           <option value="name">排序：姓名</option>
           <option value="grade">排序：年級</option>
           <option value="campus">排序：校區</option>
         </select>
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="rounded"
+            checked={onlyUnassigned}
+            onChange={(e) => handleOnlyUnassignedChange(e.target.checked)}
+          />
+          只看未指定導師
+        </label>
         <span className="text-xs text-muted-foreground ml-auto">
-          {search || campusFilter !== 'all' || tutorFilter !== 'all'
+          {search || campusFilter !== 'all' || tutorFilter !== 'all' || onlyUnassigned
             ? `${filtered.length} / ${rows.length} 人`
             : `共 ${rows.length} 人`}
         </span>
+        <Button variant={assignMode ? 'default' : 'outline'} size="sm" onClick={toggleAssignMode}>
+          {assignMode ? '取消分配' : '分配總導師'}
+        </Button>
       </div>
 
+      {/* Assignment toolbar */}
+      {assignMode && (
+        <div className="flex items-center gap-3 bg-muted/50 border rounded-lg px-4 py-2 flex-wrap">
+          {selected.size > 0 ? (
+            <>
+              <span className="text-sm font-medium text-muted-foreground">批次設定 {selected.size} 人：</span>
+              <select
+                className={selectCls}
+                value={batchTutorId}
+                onChange={(e) => setBatchTutorId(e.target.value)}
+              >
+                <option value="">選擇總導師…</option>
+                {filteredTutorOptions.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <Button size="sm" variant="outline" onClick={applyBatch} disabled={!batchTutorId}>
+                套用
+              </Button>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">勾選學生後可批次指派總導師</span>
+          )}
+          {pendingCount > 0 && (
+            <Button size="sm" onClick={handleSave} disabled={saving} className="ml-auto">
+              {saving ? '儲存中...' : `儲存 ${pendingCount} 筆變更`}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Table */}
       <div className="rounded-lg border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              {assignMode && (
+                <TableHead className="w-10">
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded" />
+                </TableHead>
+              )}
               <TableHead className="w-32">姓名</TableHead>
               <TableHead className="w-20">年級</TableHead>
-              <TableHead className="w-32">總導師</TableHead>
+              <TableHead className="w-40">總導師</TableHead>
               <TableHead>七月課程</TableHead>
               <TableHead>八月課程</TableHead>
               <TableHead className="w-44">請假日期</TableHead>
+              <TableHead className="w-28">入班進度</TableHead>
               <TableHead className="w-44">備註</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  {search || campusFilter !== 'all' || tutorFilter !== 'all'
+                <TableCell colSpan={assignMode ? 9 : 8} className="text-center text-muted-foreground py-8">
+                  {search || campusFilter !== 'all' || tutorFilter !== 'all' || onlyUnassigned
                     ? '找不到符合的學生'
                     : '目前無學生資料'}
                 </TableCell>
               </TableRow>
             )}
-            {filtered.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="text-sm">
-                  <p className="font-medium">{r.name}</p>
-                  {r.englishName && (
-                    <p className="text-xs text-muted-foreground">{r.englishName}</p>
+            {filtered.map((r) => {
+              const hasCourse = r.julyEnrollments.length > 0 || r.augustEnrollments.length > 0;
+              const hasTutor = !!r.mainTutorId;
+              const isPending = r.id in pendingTutors;
+              const effectiveTutorId = isPending ? pendingTutors[r.id] : r.mainTutorId;
+              const effectiveTutorName = isPending
+                ? (tutorOptions.find((t) => t.id === pendingTutors[r.id])?.name ?? '')
+                : r.mainTutorName;
+              const campusTutors = r.campus
+                ? tutorOptions.filter((t) => t.campus === r.campus)
+                : tutorOptions;
+
+              return (
+                <TableRow key={r.id} className={isPending ? 'bg-yellow-50' : undefined}>
+                  {assignMode && (
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={selected.has(r.id)}
+                        onChange={() => toggleOne(r.id)}
+                      />
+                    </TableCell>
                   )}
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{r.grade}</TableCell>
-                <TableCell className="text-sm">
-                  {r.mainTutorName || (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">新生</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <CourseList courses={r.julyEnrollments} month="七月" />
-                </TableCell>
-                <TableCell>
-                  <CourseList courses={r.augustEnrollments} month="八月" />
-                </TableCell>
-                <TableCell>
-                  <LeaveList leaves={r.leaves} />
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground space-y-1">
-                  {r.registrationNote && (
-                    <p><span className="text-foreground font-medium">家長：</span>{r.registrationNote}</p>
-                  )}
-                  {r.leaveNote && (
-                    <p><span className="text-foreground font-medium">行政：</span>{r.leaveNote}</p>
-                  )}
-                  {!r.registrationNote && !r.leaveNote && '—'}
-                </TableCell>
-              </TableRow>
-            ))}
+                  <TableCell className="text-sm">
+                    <p className="font-medium">{r.name}</p>
+                    {r.englishName && (
+                      <p className="text-xs text-muted-foreground">{r.englishName}</p>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{r.grade}</TableCell>
+                  <TableCell className="text-sm">
+                    {assignMode ? (
+                      <select
+                        className="h-7 rounded border border-input bg-background px-1.5 text-xs w-full"
+                        value={effectiveTutorId}
+                        onChange={(e) =>
+                          setPendingTutors((prev) => ({ ...prev, [r.id]: e.target.value }))
+                        }
+                      >
+                        <option value="">— 未指定 —</option>
+                        {campusTutors.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      effectiveTutorName || (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">
+                          新生
+                        </span>
+                      )
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <CourseList courses={r.julyEnrollments} month="七月" />
+                  </TableCell>
+                  <TableCell>
+                    <CourseList courses={r.augustEnrollments} month="八月" />
+                  </TableCell>
+                  <TableCell>
+                    <LeaveList leaves={r.leaves} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <ProgressDot done={hasCourse} label="課程" />
+                      <ProgressDot done={hasTutor} label="導師" />
+                      <ProgressDot done={r.hasClass} label="分班" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground space-y-1">
+                    {r.registrationNote && (
+                      <p><span className="text-foreground font-medium">家長：</span>{r.registrationNote}</p>
+                    )}
+                    {r.leaveNote && (
+                      <p><span className="text-foreground font-medium">行政：</span>{r.leaveNote}</p>
+                    )}
+                    {!r.registrationNote && !r.leaveNote && '—'}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
