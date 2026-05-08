@@ -32,12 +32,17 @@ export default async function AdminRosterPage() {
       .order('leave_date'),
   ]);
 
-  const tutorMap: Record<string, { name: string; englishName: string | null; campus: string | null }> = {};
+  function normalizeCampus(campus: string | null): string {
+    if (campus === '總校') return '文府總校';
+    return campus ?? '';
+  }
+
+  const tutorMap: Record<string, { name: string; englishName: string | null; campus: string }> = {};
   for (const t of teachers ?? []) {
     tutorMap[(t as any).id] = {
       name: (t as any).name,
       englishName: (t as any).english_name ?? null,
-      campus: (t as any).campus ?? null,
+      campus: normalizeCampus((t as any).campus),
     };
   }
 
@@ -102,7 +107,7 @@ export default async function AdminRosterPage() {
   const tutorOptions: TutorOption[] = (teachers ?? []).map((t: any) => ({
     id: t.id,
     name: t.english_name ? `${t.english_name}（${t.name}）` : t.name,
-    campus: t.campus ?? '',
+    campus: normalizeCampus(t.campus),
   }));
 
   return (
