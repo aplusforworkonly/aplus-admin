@@ -23,7 +23,7 @@ function parseCSV(text: string): string[][] {
     .map((line) => line.split(',').map((cell) => cell.trim().replace(/^"|"$/g, '')));
 }
 
-export async function importTeachersFromSheet(): Promise<{ imported: number; skipped: number; error?: string }> {
+export async function importTeachersFromSheet(): Promise<{ imported: number; skipped: number; deactivated: number; error?: string }> {
   let allRows: string[][] = [];
   try {
     const results = await Promise.all(
@@ -40,7 +40,7 @@ export async function importTeachersFromSheet(): Promise<{ imported: number; ski
     // 每個分頁各自 skip header 第一行後合併
     allRows = results.flatMap((csv) => parseCSV(csv).slice(1));
   } catch (e) {
-    return { imported: 0, skipped: 0, error: '無法讀取 Google Sheet，請確認試算表已公開共用。' };
+    return { imported: 0, skipped: 0, deactivated: 0, error: '無法讀取 Google Sheet，請確認試算表已公開共用。' };
   }
 
   const rows = allRows;
@@ -64,7 +64,7 @@ export async function importTeachersFromSheet(): Promise<{ imported: number; ski
   const toImport = [...seen.values()].filter((t) => t.name && t.email);
 
   if (toImport.length === 0) {
-    return { imported: 0, skipped: 0, error: '沒有找到老師資料。' };
+    return { imported: 0, skipped: 0, deactivated: 0, error: '沒有找到老師資料。' };
   }
 
   const supabase = createServerClient();
@@ -72,8 +72,27 @@ export async function importTeachersFromSheet(): Promise<{ imported: number; ski
     .from('teachers')
     .upsert(toImport, { onConflict: 'email', ignoreDuplicates: false });
 
-  if (error) return { imported: 0, skipped: 0, error: error.message };
+  if (error) return { imported: 0, skipped: 0, deactivated: 0, error: error.message };
+
+  // 把 DB 裡不在 Sheet 的老師設為離職（包含無 email 的手動建立筆資料）
+  const sheetEmails = new Set(toImport.map((t) => t.email));
+  const { data: allActive } = await supabase
+    .from('teachers')
+    .select('id, email')
+    .neq('status', '離職');
+
+  const toDeactivate = (allActive ?? [])
+    .filter((t) => !t.email || !sheetEmails.has(t.email.toLowerCase()));
+
+  let deactivated = 0;
+  if (toDeactivate.length > 0) {
+    const { error: deErr } = await supabase
+      .from('teachers')
+      .update({ status: '離職' })
+      .in('id', toDeactivate.map((t) => t.id));
+    if (!deErr) deactivated = toDeactivate.length;
+  }
 
   revalidatePath('/teachers');
-  return { imported: toImport.length, skipped: rows.length - toImport.length };
+  return { imported: toImport.length, skipped: rows.length - toImport.length, deactivated };
 }

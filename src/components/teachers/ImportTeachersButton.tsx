@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { importTeachersFromSheet } from '@/actions/import';
 
 export default function ImportTeachersButton() {
-  const [result, setResult] = useState<{ imported: number; skipped: number; error?: string } | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number; deactivated: number; error?: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   function handleImport() {
@@ -22,7 +22,7 @@ export default function ImportTeachersButton() {
       </Button>
       {result && !result.error && (
         <span className="text-sm text-green-700">
-          已匯入／更新 {result.imported} 位在職老師（略過 {result.skipped} 筆）
+          已匯入／更新 {result.imported} 位{result.deactivated > 0 ? `，停用 ${result.deactivated} 位不在 Sheet 的老師` : ''}
         </span>
       )}
       {result?.error && (
