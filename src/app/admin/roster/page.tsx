@@ -41,17 +41,29 @@ export default async function AdminRosterPage() {
     };
   }
 
-  const julyMap: Record<string, string[]> = {};
-  const augustMap: Record<string, string[]> = {};
+  const COURSE_TYPE_ORDER: Record<string, number> = { main_course: 0, camp: 1, trip: 2 };
+
+  const julyRaw: Record<string, { name: string; order: number }[]> = {};
+  const augustRaw: Record<string, { name: string; order: number }[]> = {};
   for (const e of enrollments ?? []) {
     const c = (e as any).courses;
     if (!c || c.course_type === 'material') continue;
     const month = ((e as any).start_date ?? '').slice(5, 7);
+    const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
+    const sid = (e as any).student_id;
     if (month === '07') {
-      julyMap[(e as any).student_id] = [...(julyMap[(e as any).student_id] ?? []), c.name];
+      julyRaw[sid] = [...(julyRaw[sid] ?? []), entry];
     } else if (month === '08') {
-      augustMap[(e as any).student_id] = [...(augustMap[(e as any).student_id] ?? []), c.name];
+      augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
     }
+  }
+  const julyMap: Record<string, string[]> = {};
+  const augustMap: Record<string, string[]> = {};
+  for (const [sid, entries] of Object.entries(julyRaw)) {
+    julyMap[sid] = entries.sort((a, b) => a.order - b.order).map((e) => e.name);
+  }
+  for (const [sid, entries] of Object.entries(augustRaw)) {
+    augustMap[sid] = entries.sort((a, b) => a.order - b.order).map((e) => e.name);
   }
 
   const leaveMap: Record<string, { date: string; endDate: string | null; note: string | null }[]> = {};
