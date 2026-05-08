@@ -5,18 +5,25 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 
+export type TutorOption = { id: string; name: string; campus: string };
+
 export type EnrollmentRow = {
   id: string;
   name: string;
+  englishName: string | null;
   grade: string;
+  campus: string;
   mainTutorId: string;
   mainTutorName: string;
+  mainTutorCampus: string | null;
   julyEnrollments: string[];
   augustEnrollments: string[];
   leaves: { date: string; endDate: string | null; note: string | null }[];
   leaveNote: string | null;
   registrationNote: string | null;
 };
+
+const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 function CourseList({ courses, month }: { courses: string[]; month: '七月' | '八月' }) {
   if (courses.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
@@ -53,15 +60,28 @@ export default function EnrollmentOverview({
   tutorOptions,
 }: {
   rows: EnrollmentRow[];
-  tutorOptions: { id: string; name: string }[];
+  tutorOptions: TutorOption[];
 }) {
   const [search, setSearch] = useState('');
+  const [campusFilter, setCampusFilter] = useState('all');
   const [tutorFilter, setTutorFilter] = useState('all');
 
+  // 切換校區時重置總導師篩選
+  function handleCampusChange(val: string) {
+    setCampusFilter(val);
+    setTutorFilter('all');
+  }
+
+  // 依校區過濾後的總導師選項
+  const filteredTutorOptions = campusFilter === 'all'
+    ? tutorOptions
+    : tutorOptions.filter((t) => t.campus === campusFilter);
+
   const filtered = rows.filter((r) => {
-    const matchSearch = !search.trim() || r.name.includes(search.trim());
+    const matchSearch = !search.trim() || r.name.includes(search.trim()) || (r.englishName ?? '').toLowerCase().includes(search.trim().toLowerCase());
+    const matchCampus = campusFilter === 'all' || r.campus === campusFilter;
     const matchTutor = tutorFilter === 'all' || r.mainTutorId === tutorFilter;
-    return matchSearch && matchTutor;
+    return matchSearch && matchCampus && matchTutor;
   });
 
   const selectCls = 'h-8 rounded-md border border-input bg-background px-2 text-sm';
@@ -77,16 +97,26 @@ export default function EnrollmentOverview({
         />
         <select
           className={selectCls}
+          value={campusFilter}
+          onChange={(e) => handleCampusChange(e.target.value)}
+        >
+          <option value="all">全部校區</option>
+          {CAMPUSES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select
+          className={selectCls}
           value={tutorFilter}
           onChange={(e) => setTutorFilter(e.target.value)}
         >
           <option value="all">全部總導師</option>
-          {tutorOptions.map((t) => (
+          {filteredTutorOptions.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </select>
         <span className="text-xs text-muted-foreground ml-auto">
-          {search || tutorFilter !== 'all'
+          {search || campusFilter !== 'all' || tutorFilter !== 'all'
             ? `${filtered.length} / ${rows.length} 人`
             : `共 ${rows.length} 人`}
         </span>
@@ -96,9 +126,9 @@ export default function EnrollmentOverview({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-20">姓名</TableHead>
+              <TableHead className="w-32">姓名</TableHead>
               <TableHead className="w-20">年級</TableHead>
-              <TableHead className="w-24">總導師</TableHead>
+              <TableHead className="w-32">總導師</TableHead>
               <TableHead>七月課程</TableHead>
               <TableHead>八月課程</TableHead>
               <TableHead className="w-44">請假日期</TableHead>
@@ -109,13 +139,20 @@ export default function EnrollmentOverview({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                  {search || tutorFilter !== 'all' ? '找不到符合的學生' : '目前無學生資料'}
+                  {search || campusFilter !== 'all' || tutorFilter !== 'all'
+                    ? '找不到符合的學生'
+                    : '目前無學生資料'}
                 </TableCell>
               </TableRow>
             )}
             {filtered.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-medium text-sm">{r.name}</TableCell>
+                <TableCell className="text-sm">
+                  <p className="font-medium">{r.name}</p>
+                  {r.englishName && (
+                    <p className="text-xs text-muted-foreground">{r.englishName}</p>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{r.grade}</TableCell>
                 <TableCell className="text-sm">
                   {r.mainTutorName || (

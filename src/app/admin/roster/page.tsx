@@ -1,6 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { getGrade } from '@/lib/grade';
-import EnrollmentOverview, { type EnrollmentRow } from '@/components/admin/EnrollmentOverview';
+import EnrollmentOverview, { type EnrollmentRow, type TutorOption } from '@/components/admin/EnrollmentOverview';
 
 export default async function AdminRosterPage() {
   const supabase = createServerClient();
@@ -13,12 +13,12 @@ export default async function AdminRosterPage() {
   ] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name, enrollment_date, main_tutor_id, registration_note, leave_note')
+      .select('id, name, english_name, enrollment_date, main_tutor_id, campus, registration_note, leave_note')
       .eq('status', '就讀中')
       .order('name'),
     supabase
       .from('teachers')
-      .select('id, name')
+      .select('id, name, english_name, campus')
       .neq('status', '離職')
       .order('name'),
     supabase
@@ -32,8 +32,14 @@ export default async function AdminRosterPage() {
       .order('leave_date'),
   ]);
 
-  const tutorMap: Record<string, string> = {};
-  for (const t of teachers ?? []) tutorMap[(t as any).id] = (t as any).name;
+  const tutorMap: Record<string, { name: string; englishName: string | null; campus: string | null }> = {};
+  for (const t of teachers ?? []) {
+    tutorMap[(t as any).id] = {
+      name: (t as any).name,
+      englishName: (t as any).english_name ?? null,
+      campus: (t as any).campus ?? null,
+    };
+  }
 
   const julyMap: Record<string, string[]> = {};
   const augustMap: Record<string, string[]> = {};
@@ -59,20 +65,33 @@ export default async function AdminRosterPage() {
     });
   }
 
-  const rows: EnrollmentRow[] = (students ?? []).map((s: any) => ({
-    id: s.id,
-    name: s.name ?? '—',
-    grade: getGrade(s.enrollment_date),
-    mainTutorId: s.main_tutor_id ?? '',
-    mainTutorName: s.main_tutor_id ? (tutorMap[s.main_tutor_id] ?? '—') : '',
-    julyEnrollments: julyMap[s.id] ?? [],
-    augustEnrollments: augustMap[s.id] ?? [],
-    leaves: leaveMap[s.id] ?? [],
-    leaveNote: s.leave_note ?? null,
-    registrationNote: s.registration_note ?? null,
-  }));
+  const rows: EnrollmentRow[] = (students ?? []).map((s: any) => {
+    const tutor = s.main_tutor_id ? tutorMap[s.main_tutor_id] : null;
+    const tutorDisplay = tutor
+      ? (tutor.englishName ? `${tutor.englishName}（${tutor.name}）` : tutor.name)
+      : '';
+    return {
+      id: s.id,
+      name: s.name ?? '—',
+      englishName: s.english_name ?? null,
+      grade: getGrade(s.enrollment_date),
+      campus: s.campus ?? '',
+      mainTutorId: s.main_tutor_id ?? '',
+      mainTutorName: tutorDisplay,
+      mainTutorCampus: tutor?.campus ?? null,
+      julyEnrollments: julyMap[s.id] ?? [],
+      augustEnrollments: augustMap[s.id] ?? [],
+      leaves: leaveMap[s.id] ?? [],
+      leaveNote: s.leave_note ?? null,
+      registrationNote: s.registration_note ?? null,
+    };
+  });
 
-  const tutorOptions = (teachers ?? []).map((t: any) => ({ id: t.id, name: t.name }));
+  const tutorOptions: TutorOption[] = (teachers ?? []).map((t: any) => ({
+    id: t.id,
+    name: t.english_name ? `${t.english_name}（${t.name}）` : t.name,
+    campus: t.campus ?? '',
+  }));
 
   return (
     <div className="p-6 space-y-4">
