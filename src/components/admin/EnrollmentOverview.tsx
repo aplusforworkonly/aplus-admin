@@ -25,6 +25,11 @@ export type EnrollmentRow = {
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
+const GRADE_ORDER: Record<string, number> = {
+  '大班升小一': 0, '小一': 1, '小二': 2, '小三': 3, '小四': 4, '小五': 5, '小六': 6, '已畢業': 7,
+};
+const CAMPUS_ORDER: Record<string, number> = { '文府總校': 0, '龍華校': 1, '左新校': 2 };
+
 function CourseList({ courses, month }: { courses: string[]; month: '七月' | '八月' }) {
   if (courses.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
   const color = month === '七月'
@@ -65,6 +70,7 @@ export default function EnrollmentOverview({
   const [search, setSearch] = useState('');
   const [campusFilter, setCampusFilter] = useState('all');
   const [tutorFilter, setTutorFilter] = useState('all');
+  const [sortKey, setSortKey] = useState<'name' | 'grade' | 'campus'>('name');
 
   // 切換校區時重置總導師篩選
   function handleCampusChange(val: string) {
@@ -77,12 +83,18 @@ export default function EnrollmentOverview({
     ? tutorOptions
     : tutorOptions.filter((t) => t.campus === campusFilter);
 
-  const filtered = rows.filter((r) => {
-    const matchSearch = !search.trim() || r.name.includes(search.trim()) || (r.englishName ?? '').toLowerCase().includes(search.trim().toLowerCase());
-    const matchCampus = campusFilter === 'all' || r.campus === campusFilter;
-    const matchTutor = tutorFilter === 'all' || r.mainTutorId === tutorFilter;
-    return matchSearch && matchCampus && matchTutor;
-  });
+  const filtered = rows
+    .filter((r) => {
+      const matchSearch = !search.trim() || r.name.includes(search.trim()) || (r.englishName ?? '').toLowerCase().includes(search.trim().toLowerCase());
+      const matchCampus = campusFilter === 'all' || r.campus === campusFilter;
+      const matchTutor = tutorFilter === 'all' || r.mainTutorId === tutorFilter;
+      return matchSearch && matchCampus && matchTutor;
+    })
+    .sort((a, b) => {
+      if (sortKey === 'grade') return (GRADE_ORDER[a.grade] ?? 99) - (GRADE_ORDER[b.grade] ?? 99);
+      if (sortKey === 'campus') return (CAMPUS_ORDER[a.campus] ?? 99) - (CAMPUS_ORDER[b.campus] ?? 99);
+      return a.name.localeCompare(b.name, 'zh-TW');
+    });
 
   const selectCls = 'h-8 rounded-md border border-input bg-background px-2 text-sm';
 
@@ -114,6 +126,15 @@ export default function EnrollmentOverview({
           {filteredTutorOptions.map((t) => (
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
+        </select>
+        <select
+          className={selectCls}
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as 'name' | 'grade' | 'campus')}
+        >
+          <option value="name">排序：姓名</option>
+          <option value="grade">排序：年級</option>
+          <option value="campus">排序：校區</option>
         </select>
         <span className="text-xs text-muted-foreground ml-auto">
           {search || campusFilter !== 'all' || tutorFilter !== 'all'
