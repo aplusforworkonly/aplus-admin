@@ -124,6 +124,9 @@ export async function updateStudent(id: string, data: StudentPayload) {
   if (error) throw new Error(error.message);
   revalidatePath('/students');
   revalidatePath(`/students/${id}`);
+  revalidatePath('/parents');
+  revalidatePath('/enrollments');
+  revalidatePath('/admin/roster');
 }
 
 export async function createStudent(data: StudentPayload) {
