@@ -28,7 +28,7 @@ export default async function AdminRosterPage() {
     supabase
       .from('leave_requests')
       .select('student_id, leave_date, leave_date_end, note, status')
-      .in('status', ['pending', 'approved'])
+      .eq('status', 'approved')
       .order('leave_date'),
   ]);
 
