@@ -149,16 +149,15 @@ export async function deactivateStudent(id: string) {
 }
 
 export async function batchAssignTutors(
-  assignments: { studentId: string; tutorId: string | null }[]
+  assignments: { studentId: string; tutorId: string | null; programType?: string | null }[]
 ) {
   const supabase = createServerClient();
   await Promise.all(
-    assignments.map((a) =>
-      supabase
-        .from('students')
-        .update({ main_tutor_id: a.tutorId || null })
-        .eq('id', a.studentId)
-    )
+    assignments.map((a) => {
+      const update: Record<string, unknown> = { main_tutor_id: a.tutorId || null };
+      if ('programType' in a) update.program_type = a.programType || null;
+      return supabase.from('students').update(update).eq('id', a.studentId);
+    })
   );
   revalidatePath('/admin/roster');
 }
