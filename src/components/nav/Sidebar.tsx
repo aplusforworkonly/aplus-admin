@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils';
 type LinkDef = { href: string; label: string; countKey?: 'leaves' | 'requests' | 'enrollments'; exact?: boolean };
 
 const links: LinkDef[] = [
-  { href: '/students', label: '學生管理' },
+  { href: '/students', label: '學生管理', exact: true },
+  { href: '/admin/roster', label: '學生報名總覽' },
   { href: '/parents', label: '家長管理' },
   { href: '/enrollments', label: '報名合約', countKey: 'enrollments' },
   { href: '/courses', label: '課程管理' },
