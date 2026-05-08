@@ -22,7 +22,7 @@ export default async function InvoicesPage({
 
   let query = supabase
     .from('invoices')
-    .select('id, invoice_no, billing_month, total_amount, paid_amount, status, due_date, students(name)')
+    .select('id, invoice_no, billing_month, total_amount, paid_amount, status, due_date, students(name, english_name)')
     .order('due_date', { ascending: false });
 
   if (status && status !== 'all') {
@@ -103,7 +103,12 @@ export default async function InvoicesPage({
           {(invoices ?? []).map((inv) => (
             <TableRow key={inv.id}>
               <TableCell className="font-mono text-xs">{inv.invoice_no}</TableCell>
-              <TableCell className="font-medium text-sm">{(inv.students as any)?.name ?? '—'}</TableCell>
+              <TableCell className="font-medium text-sm">
+                <p>{(inv.students as any)?.name ?? '—'}</p>
+                {(inv.students as any)?.english_name && (
+                  <p className="text-xs text-muted-foreground font-normal">{(inv.students as any).english_name}</p>
+                )}
+              </TableCell>
               <TableCell className="text-sm">{inv.billing_month}</TableCell>
               <TableCell className="text-right font-mono text-sm">
                 ${Number(inv.total_amount).toLocaleString()}

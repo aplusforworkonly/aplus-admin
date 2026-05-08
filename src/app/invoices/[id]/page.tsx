@@ -27,7 +27,7 @@ export default async function InvoiceDetailPage({
   const [{ data: invoice, error }, { data: items }] = await Promise.all([
     supabase
       .from('invoices')
-      .select('*, students(name)')
+      .select('*, students(name, english_name)')
       .eq('id', id)
       .single(),
     supabase
@@ -40,6 +40,7 @@ export default async function InvoiceDetailPage({
   if (error || !invoice) notFound();
 
   const studentName = (invoice.students as any)?.name ?? '—';
+  const studentEnglishName = (invoice.students as any)?.english_name ?? null;
   const totalAmount = Number(invoice.total_amount);
   const paidAmount = Number(invoice.paid_amount);
   const balance = totalAmount - paidAmount;
@@ -61,7 +62,7 @@ export default async function InvoiceDetailPage({
         <div>
           <h1 className="text-2xl font-bold">{invoice.invoice_no}</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {studentName}・{invoice.billing_month}
+            {studentName}{studentEnglishName ? ` (${studentEnglishName})` : ''}・{invoice.billing_month}
           </p>
         </div>
         <Badge variant={STATUS_VARIANT[invoice.status as InvoiceStatus] ?? 'secondary'} className="text-sm">

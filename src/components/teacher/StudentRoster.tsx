@@ -8,6 +8,7 @@ import {
 export type StudentRow = {
   id: string;
   name: string;
+  englishName: string | null;
   classes: string[];
   julyEnrollments: string[];
   augustEnrollments: string[];
@@ -38,7 +39,7 @@ function CourseList({ courses, month }: { courses: string[]; month: '七月' | '
 export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
   const [q, setQ] = useState('');
   const filtered = q.trim()
-    ? rows.filter((r) => r.name.includes(q.trim()))
+    ? rows.filter((r) => r.name.includes(q.trim()) || (r.englishName ?? '').toLowerCase().includes(q.trim().toLowerCase()))
     : rows;
 
   return (
@@ -66,6 +67,7 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
           <div key={r.id} className="rounded-lg border p-4 space-y-3">
             <div>
               <p className="font-semibold text-base">{r.name}</p>
+              {r.englishName && <p className="text-xs text-muted-foreground">{r.englishName}</p>}
               <p className="text-xs text-muted-foreground mt-0.5">{r.classes.join('、') || '—'}</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -113,7 +115,10 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
             )}
             {filtered.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-medium text-sm">{r.name}</TableCell>
+                <TableCell className="text-sm">
+                  <p className="font-medium">{r.name}</p>
+                  {r.englishName && <p className="text-xs text-muted-foreground">{r.englishName}</p>}
+                </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {r.classes.join('、') || '—'}
                 </TableCell>

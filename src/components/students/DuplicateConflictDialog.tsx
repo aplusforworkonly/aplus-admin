@@ -7,7 +7,7 @@ type Props = {
   newStudentName: string;
   parentPhone: string;
   parentId: string;
-  existingStudents: { id: string; name: string }[];
+  existingStudents: { id: string; name: string; english_name: string | null }[];
   studentPayload: StudentPayload;
   onClose: () => void;
   onDone: (studentId: string) => void;
@@ -81,7 +81,10 @@ export default function DuplicateConflictDialog({
         {/* 已存在學生清單 */}
         <div className="rounded-md border bg-muted/40 px-4 py-3 space-y-1">
           {existingStudents.map((s) => (
-            <p key={s.id} className="text-sm font-medium">· {s.name}</p>
+            <p key={s.id} className="text-sm font-medium">
+              · {s.name}
+              {s.english_name && <span className="text-xs text-muted-foreground ml-1">({s.english_name})</span>}
+            </p>
           ))}
         </div>
 
@@ -129,6 +132,7 @@ export default function DuplicateConflictDialog({
                         className="accent-primary"
                       />
                       {s.name}
+                      {s.english_name && <span className="text-xs text-muted-foreground">({s.english_name})</span>}
                     </label>
                   ))}
                 </div>

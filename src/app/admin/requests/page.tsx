@@ -27,12 +27,12 @@ export default async function RequestsPage({
   const [{ data: pending }, { data: history }] = await Promise.all([
     supabase
       .from('student_requests')
-      .select('id, request_type, reason, created_at, students(name, campus), courses(name), teachers!teacher_id(name)')
+      .select('id, request_type, reason, created_at, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
       .eq('status', 'pending')
       .order('created_at'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, handled_at, students(name, campus), courses(name), teachers!teacher_id(name), teachers!handled_by(name)')
+      .select('id, status, request_type, reason, created_at, handled_at, students(name, english_name, campus), courses(name), teachers!teacher_id(name), teachers!handled_by(name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -106,7 +106,12 @@ export default async function RequestsPage({
               {filteredPending.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell><RequestTypeBadge requestType={r.request_type} /></TableCell>
-                  <TableCell className="font-medium">{r.students?.name ?? '—'}</TableCell>
+                  <TableCell className="font-medium">
+                    <p>{r.students?.name ?? '—'}</p>
+                    {(r.students as any)?.english_name && (
+                      <p className="text-xs text-muted-foreground">{(r.students as any).english_name}</p>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
                   <TableCell className="text-sm">{r.teachers?.name ?? '—'}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-48 truncate">
@@ -148,7 +153,12 @@ export default async function RequestsPage({
                 {filteredHistory.map((r: any) => (
                   <TableRow key={r.id} className="text-muted-foreground">
                     <TableCell><RequestTypeBadge requestType={r.request_type} /></TableCell>
-                    <TableCell className="font-medium text-foreground">{r.students?.name ?? '—'}</TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      <p>{r.students?.name ?? '—'}</p>
+                      {(r.students as any)?.english_name && (
+                        <p className="text-xs text-muted-foreground">{(r.students as any).english_name}</p>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
                     <TableCell className="text-sm">{(r as any)['teachers!teacher_id']?.name ?? '—'}</TableCell>
                     <TableCell className="text-sm">

@@ -22,7 +22,7 @@ export default async function TeacherPage() {
   const [{ data: studentsList }, { data: coursesList }, { data: cancelList }, { data: leaveList }] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name')
+      .select('id, name, english_name')
       .eq('main_tutor_id', teacher.id)
       .eq('status', '就讀中')
       .order('name'),
@@ -33,17 +33,17 @@ export default async function TeacherPage() {
       .order('name'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, students(name), courses(name)')
+      .select('id, status, request_type, reason, created_at, students(name, english_name), courses(name)')
       .eq('teacher_id', teacher.id)
       .order('created_at', { ascending: false }),
     supabase
       .from('leave_requests')
-      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, note, created_at, students(name)')
+      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, note, created_at, students(name, english_name)')
       .eq('teacher_id', teacher.id)
       .order('created_at', { ascending: false }),
   ]);
 
-  const students = (studentsList ?? []) as { id: string; name: string }[];
+  const students = (studentsList ?? []) as { id: string; name: string; english_name?: string | null }[];
   const courses = (coursesList ?? []) as { id: string; name: string }[];
 
   const cancelRequests = (cancelList ?? []).map((r: any) => ({
@@ -51,6 +51,7 @@ export default async function TeacherPage() {
     type: (r.request_type === 'add' ? '加報課程' : '取消課程') as '取消課程' | '加報課程',
     status: r.status,
     studentName: r.students?.name ?? '—',
+    studentEnglishName: r.students?.english_name ?? null,
     detail: r.courses?.name ?? null,
     reason: r.reason ?? '',
     created_at: r.created_at,
@@ -65,6 +66,7 @@ export default async function TeacherPage() {
       type: '請假' as const,
       status: r.status,
       studentName: r.students?.name ?? '—',
+      studentEnglishName: r.students?.english_name ?? null,
       detail: [dateRange, r.leave_type].filter(Boolean).join('　') || null,
       reason: r.reason ?? r.note ?? '',
       created_at: r.created_at,

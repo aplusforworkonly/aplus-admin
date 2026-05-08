@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { submitParentLeaveRequest } from '@/actions/leave-requests';
 import { uploadMedicalProof } from '@/actions/upload';
 
-type Student = { id: string; name: string };
+type Student = { id: string; name: string; english_name?: string | null };
 
 const LEAVE_TYPES = ['病假', '事假', '喪假', '活動日', '其他'];
 const DISEASE_TYPES = ['腸病毒', '流感', '水痘', '麻疹', '病毒性腸胃炎', '登革熱', '以上皆非'];
@@ -129,14 +129,19 @@ export default function ParentLeaveForm() {
               >
                 <option value="">— 請選擇 —</option>
                 {students.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.english_name ? ` (${s.english_name})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
           )}
 
           {students.length === 1 && (
-            <p className="text-sm">學生：<span className="font-medium">{students[0].name}</span></p>
+            <p className="text-sm">
+              學生：<span className="font-medium">{students[0].name}</span>
+              {students[0].english_name && <span className="text-muted-foreground ml-1">({students[0].english_name})</span>}
+            </p>
           )}
 
           {/* 日期區間 */}

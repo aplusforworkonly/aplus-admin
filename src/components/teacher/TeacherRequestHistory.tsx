@@ -7,6 +7,7 @@ type RequestEntry = {
   type: '取消課程' | '加報課程' | '請假';
   status: string;
   studentName: string;
+  studentEnglishName?: string | null;
   detail: string | null;
   reason: string;
   created_at: string;
@@ -64,7 +65,10 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
                 </span>
                 <StatusBadge status={r.status} />
               </div>
-              <p className="font-medium text-sm">{r.studentName}</p>
+              <p className="font-medium text-sm">
+                {r.studentName}
+                {r.studentEnglishName && <span className="text-xs text-muted-foreground ml-1">({r.studentEnglishName})</span>}
+              </p>
               {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
               {r.reason && <p className="text-sm text-muted-foreground">{r.reason}</p>}
               <p className="text-xs text-muted-foreground font-mono">{formatDate(r.created_at)}</p>
@@ -100,6 +104,9 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
                   </TableCell>
                   <TableCell className="text-sm">
                     <span className="font-medium">{r.studentName}</span>
+                    {r.studentEnglishName && (
+                      <span className="text-xs text-muted-foreground ml-1">({r.studentEnglishName})</span>
+                    )}
                     {r.detail && (
                       <p className="text-xs text-muted-foreground mt-0.5">{r.detail}</p>
                     )}

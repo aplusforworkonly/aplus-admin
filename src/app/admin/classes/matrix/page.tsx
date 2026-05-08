@@ -63,7 +63,7 @@ export default async function RosteringMatrixPage({
       .order('name'),
     supabase
       .from('enrollments')
-      .select('student_id, students(id, name, enrollment_date, main_tutor_id, teachers(name))')
+      .select('student_id, students(id, name, english_name, enrollment_date, main_tutor_id, teachers(name))')
       .eq('course_id', courseId)
       .eq('status', '生效'),
   ]);
@@ -111,6 +111,7 @@ export default async function RosteringMatrixPage({
       return {
         id: s.id,
         name: s.name,
+        englishName: s.english_name ?? null,
         grade: getGrade(s.enrollment_date),
         mainTutorName: (s.teachers as any)?.name ?? null,
         assignedClassId: assignmentMap[s.id] ?? null,

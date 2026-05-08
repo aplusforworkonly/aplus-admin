@@ -6,7 +6,7 @@ import { submitLeaveRequest } from '@/actions/leave-requests';
 import { submitCancelRequest, getStudentEnrollments, type StudentEnrollment } from '@/actions/cancel-requests';
 import { uploadMedicalProof } from '@/actions/upload';
 
-type Student = { id: string; name: string };
+type Student = { id: string; name: string; english_name?: string | null };
 type Course = { id: string; name: string };
 
 const LEAVE_TYPES = ['病假', '事假', '喪假', '活動日', '其他'];
@@ -210,7 +210,7 @@ export default function TeacherLeaveForm({
         >
           <option value="">— 請選擇學生 —</option>
           {students.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.name}{s.english_name ? ` (${s.english_name})` : ''}</option>
           ))}
         </select>
       </div>

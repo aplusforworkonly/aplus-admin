@@ -19,7 +19,7 @@ export default async function TeacherStudentsPage() {
   // 以總導師 ID 直接找學生
   const { data: students } = await supabase
     .from('students')
-    .select('id, name, leave_note, registration_note')
+    .select('id, name, english_name, leave_note, registration_note')
     .eq('main_tutor_id', teacher.id)
     .eq('status', '就讀中')
     .order('name');
@@ -93,6 +93,7 @@ export default async function TeacherStudentsPage() {
   const rows: StudentRow[] = (students ?? []).map((s: any) => ({
     id: s.id,
     name: s.name ?? '—',
+    englishName: s.english_name ?? null,
     classes: studentClassMap.get(s.id) ?? [],
     julyEnrollments: julyMap.get(s.id) ?? [],
     augustEnrollments: augustMap.get(s.id) ?? [],

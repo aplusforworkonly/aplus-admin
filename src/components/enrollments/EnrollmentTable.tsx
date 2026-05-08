@@ -20,7 +20,7 @@ type EnrollmentRow = {
   start_date: string;
   end_date: string | null;
   status: EnrollmentStatus;
-  students: { name: string } | null;
+  students: { name: string; english_name?: string | null } | null;
   courses: { name: string } | null;
 };
 
@@ -159,7 +159,12 @@ export default function EnrollmentTable({
             return (
               <TableRow key={e.id}>
                 <TableCell className="font-mono text-xs">{e.contract_no}</TableCell>
-                <TableCell className="font-medium text-sm">{e.students?.name ?? '—'}</TableCell>
+                <TableCell className="font-medium text-sm">
+                  <p>{e.students?.name ?? '—'}</p>
+                  {e.students?.english_name && (
+                    <p className="text-xs text-muted-foreground font-normal">{e.students.english_name}</p>
+                  )}
+                </TableCell>
                 <TableCell className="text-sm">{e.courses?.name ?? '—'}</TableCell>
                 <TableCell className="text-sm">{e.campus}</TableCell>
                 <TableCell className="text-sm">{e.start_date}</TableCell>

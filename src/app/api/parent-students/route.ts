@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   const { data: mappings } = await supabase
     .from('parent_student_mapping')
-    .select('students(id, name)')
+    .select('students(id, name, english_name)')
     .eq('parent_id', parent.id);
 
   const students = (mappings ?? [])

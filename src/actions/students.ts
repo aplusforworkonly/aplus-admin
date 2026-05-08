@@ -23,7 +23,7 @@ export type StudentPayload = {
 export type ConflictResult =
   | { status: 'clear' }
   | { status: 'exists'; studentId: string }
-  | { status: 'conflict'; parentId: string; parentPhone: string; existingStudents: { id: string; name: string }[] };
+  | { status: 'conflict'; parentId: string; parentPhone: string; existingStudents: { id: string; name: string; english_name: string | null }[] };
 
 export async function checkStudentConflict(name: string, parentPhone: string): Promise<ConflictResult> {
   const supabase = createServerClient();
@@ -42,10 +42,10 @@ export async function checkStudentConflict(name: string, parentPhone: string): P
 
   const { data: mappings } = await supabase
     .from('parent_student_mapping')
-    .select('students(id, name)')
+    .select('students(id, name, english_name)')
     .eq('parent_id', matched.id);
 
-  const existingStudents: { id: string; name: string }[] = (mappings ?? [])
+  const existingStudents: { id: string; name: string; english_name: string | null }[] = (mappings ?? [])
     .map((m: any) => m.students)
     .filter(Boolean);
 

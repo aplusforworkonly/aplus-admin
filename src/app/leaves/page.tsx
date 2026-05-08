@@ -26,18 +26,18 @@ export default async function LeavesPage({
   const [{ data: leaves }, { data: pending }, { data: history }] = await Promise.all([
     supabase
       .from('student_leaves')
-      .select('id, leave_date, leave_type, note, students(name, campus)')
+      .select('id, leave_date, leave_type, note, students(name, english_name, campus)')
       .gte('leave_date', startDate)
       .lt('leave_date', endDate)
       .order('leave_date'),
     supabase
       .from('leave_requests')
-      .select('id, request_type, leave_date, leave_date_end, leave_type, reason, note, status, created_at, disease_type, proof_file_url, teacher_id, parent_id, students(name, campus), teachers!teacher_id(name), parents(name), courses(name)')
+      .select('id, request_type, leave_date, leave_date_end, leave_type, reason, note, status, created_at, disease_type, proof_file_url, teacher_id, parent_id, students(name, english_name, campus), teachers!teacher_id(name), parents(name), courses(name)')
       .eq('status', 'pending')
       .order('created_at'),
     supabase
       .from('leave_requests')
-      .select('id, status, request_type, leave_date, leave_type, reason, handled_at, disease_type, proof_file_url, students(name), teachers!handled_by(name)')
+      .select('id, status, request_type, leave_date, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -125,7 +125,12 @@ export default async function LeavesPage({
               <TableBody>
                 {filteredPending.map((r: any) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.students?.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <p>{r.students?.name}</p>
+                      {(r.students as any)?.english_name && (
+                        <p className="text-xs text-muted-foreground">{(r.students as any).english_name}</p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge variant={r.request_type === '退班' ? 'destructive' : 'outline'}>
@@ -213,7 +218,12 @@ export default async function LeavesPage({
               {filteredLeaves.map((l: any) => (
                 <TableRow key={l.id}>
                   <TableCell className="font-mono text-sm">{l.leave_date}</TableCell>
-                  <TableCell className="font-medium">{l.students?.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <p>{l.students?.name}</p>
+                    {(l.students as any)?.english_name && (
+                      <p className="text-xs text-muted-foreground">{(l.students as any).english_name}</p>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {l.leave_type ? (
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${LEAVE_TYPE_COLOR[l.leave_type] ?? ''}`}>
@@ -250,7 +260,12 @@ export default async function LeavesPage({
               <TableBody>
                 {(history ?? []).map((r: any) => (
                   <TableRow key={r.id} className="text-muted-foreground">
-                    <TableCell className="font-medium text-foreground">{r.students?.name ?? '—'}</TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      <p>{r.students?.name ?? '—'}</p>
+                      {(r.students as any)?.english_name && (
+                        <p className="text-xs text-muted-foreground">{(r.students as any).english_name}</p>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">
                       <div className="flex flex-col gap-0.5">
                         <span>{r.leave_type ?? '—'}</span>

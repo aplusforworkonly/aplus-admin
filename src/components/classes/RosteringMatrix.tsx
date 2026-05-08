@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 export type StudentRow = {
   id: string;
   name: string;
+  englishName: string | null;
   grade: string;
   mainTutorName: string | null;
   assignedClassId: string | null;
@@ -223,7 +224,10 @@ export default function RosteringMatrix({
                       className="rounded"
                     />
                   </td>
-                  <td className="py-2 px-2 font-medium">{row.name}</td>
+                  <td className="py-2 px-2">
+                    <p className="font-medium">{row.name}</p>
+                    {row.englishName && <p className="text-xs text-muted-foreground">{row.englishName}</p>}
+                  </td>
                   <td className="py-2 px-2 text-muted-foreground">{row.grade}</td>
                   <td className="py-2 px-2 text-muted-foreground">
                     {row.mainTutorName ?? (

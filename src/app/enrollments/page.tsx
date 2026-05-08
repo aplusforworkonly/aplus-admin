@@ -11,7 +11,7 @@ export default async function EnrollmentsPage() {
   ] = await Promise.all([
     supabase
       .from('enrollments')
-      .select('id, contract_no, campus, start_date, end_date, status, student_id, students(name), courses(name)')
+      .select('id, contract_no, campus, start_date, end_date, status, student_id, students(name, english_name), courses(name)')
       .order('created_at', { ascending: false }),
     supabase
       .from('classes')
