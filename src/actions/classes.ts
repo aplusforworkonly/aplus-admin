@@ -62,6 +62,8 @@ export async function cloneClass(
 
 export async function deleteClass(id: string) {
   const supabase = createServerClient();
+  await supabase.from('class_students').delete().eq('class_id', id);
+  await supabase.from('student_requests').update({ class_id: null }).eq('class_id', id);
   const { error } = await supabase.from('classes').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/classes');

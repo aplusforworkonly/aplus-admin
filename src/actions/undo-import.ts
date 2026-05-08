@@ -43,6 +43,8 @@ export async function undoClassCreation(
     .in('class_id', classIds);
   if (csErr) return { success: false, error: csErr.message };
 
+  await supabase.from('student_requests').update({ class_id: null }).in('class_id', classIds);
+
   const { error } = await supabase.from('classes').delete().in('id', classIds);
   if (error) return { success: false, error: error.message };
 

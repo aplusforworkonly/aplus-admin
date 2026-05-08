@@ -15,6 +15,11 @@ export async function batchDeleteClasses(
     .in('class_id', classIds);
   if (csErr) return { deleted: 0, error: csErr.message };
 
+  await supabase
+    .from('student_requests')
+    .update({ class_id: null })
+    .in('class_id', classIds);
+
   const { data, error } = await supabase
     .from('classes')
     .delete()
