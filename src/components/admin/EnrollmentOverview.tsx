@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/table';
 import { batchAssignTutors } from '@/actions/students';
 
-export type TutorOption = { id: string; name: string; campus: string };
+export type TutorOption = { id: string; name: string; campus: string; department: string | null };
 
 export type EnrollmentRow = {
   id: string;
@@ -24,24 +24,42 @@ export type EnrollmentRow = {
   leaveNote: string | null;
   registrationNote: string | null;
   hasClass: boolean;
+  programType: string | null;
+  isSchoolStudent: boolean;
 };
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
+const PROGRAM_TYPES = ['全日班', '單上英語', '其他'];
 
 const GRADE_ORDER: Record<string, number> = {
   '大班升小一': 0, '小一': 1, '小二': 2, '小三': 3, '小四': 4, '小五': 5, '小六': 6, '已畢業': 7,
 };
 const CAMPUS_ORDER: Record<string, number> = { '文府總校': 0, '龍華校': 1, '左新校': 2 };
 
+// 依學制決定對應的老師部門
+function deptForProgramType(pt: string | null): string | null {
+  if (pt === '全日班') return '教學部';
+  if (pt === '單上英語') return '英語部';
+  return null;
+}
+
 function ProgressDot({ done, label }: { done: boolean; label: string }) {
   return (
     <span className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border ${
-      done
-        ? 'bg-green-50 text-green-700 border-green-200'
-        : 'bg-red-50 text-red-600 border-red-200'
+      done ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'
     }`}>
       {done ? '✓' : '✗'} {label}
     </span>
+  );
+}
+
+function ProgramBadge({ type }: { type: string | null }) {
+  if (!type || type === '其他') return null;
+  const cls = type === '全日班'
+    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+    : 'bg-teal-50 text-teal-700 border-teal-200';
+  return (
+    <span className={`text-xs px-1.5 py-0.5 rounded border ${cls}`}>{type}</span>
   );
 }
 
@@ -85,8 +103,10 @@ export default function EnrollmentOverview({
   const [search, setSearch] = useState('');
   const [campusFilter, setCampusFilter] = useState('all');
   const [tutorFilter, setTutorFilter] = useState('all');
+  const [programTypeFilter, setProgramTypeFilter] = useState('all');
   const [sortKey, setSortKey] = useState<'name' | 'grade' | 'campus'>('name');
   const [onlyUnassigned, setOnlyUnassigned] = useState(false);
+  const [onlySchoolStudents, setOnlySchoolStudents] = useState(false);
 
   // Assignment mode
   const [assignMode, setAssignMode] = useState(false);
@@ -112,9 +132,13 @@ export default function EnrollmentOverview({
     setBatchTutorId('');
   }
 
-  const filteredTutorOptions = campusFilter === 'all'
-    ? tutorOptions
-    : tutorOptions.filter((t) => t.campus === campusFilter);
+  // 篩選列用的導師選單：依校區 + 學制篩選
+  const filteredTutorOptions = tutorOptions.filter((t) => {
+    const matchCampus = campusFilter === 'all' || t.campus === campusFilter;
+    const dept = deptForProgramType(programTypeFilter === 'all' ? null : programTypeFilter);
+    const matchDept = !dept || t.department === dept;
+    return matchCampus && matchDept;
+  });
 
   const filtered = rows
     .filter((r) => {
@@ -123,8 +147,10 @@ export default function EnrollmentOverview({
         || (r.englishName ?? '').toLowerCase().includes(search.trim().toLowerCase());
       const matchCampus = campusFilter === 'all' || r.campus === campusFilter;
       const matchTutor = tutorFilter === 'all' || r.mainTutorId === tutorFilter;
+      const matchProgram = programTypeFilter === 'all' || r.programType === programTypeFilter;
       const matchUnassigned = !onlyUnassigned || !r.mainTutorId;
-      return matchSearch && matchCampus && matchTutor && matchUnassigned;
+      const matchSchool = !onlySchoolStudents || r.isSchoolStudent;
+      return matchSearch && matchCampus && matchTutor && matchProgram && matchUnassigned && matchSchool;
     })
     .sort((a, b) => {
       if (sortKey === 'grade') return (GRADE_ORDER[a.grade] ?? 99) - (GRADE_ORDER[b.grade] ?? 99);
@@ -172,10 +198,12 @@ export default function EnrollmentOverview({
   }
 
   const selectCls = 'h-8 rounded-md border border-input bg-background px-2 text-sm';
+  const isFiltered = search || campusFilter !== 'all' || tutorFilter !== 'all'
+    || programTypeFilter !== 'all' || onlyUnassigned || onlySchoolStudents;
 
   return (
     <div className="space-y-3">
-      {/* Filters */}
+      {/* Filters row */}
       <div className="flex items-center gap-3 flex-wrap">
         <Input
           placeholder="搜尋學生姓名…"
@@ -186,6 +214,14 @@ export default function EnrollmentOverview({
         <select className={selectCls} value={campusFilter} onChange={(e) => handleCampusChange(e.target.value)}>
           <option value="all">全部校區</option>
           {CAMPUSES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select
+          className={selectCls}
+          value={programTypeFilter}
+          onChange={(e) => { setProgramTypeFilter(e.target.value); setTutorFilter('all'); }}
+        >
+          <option value="all">全部學制</option>
+          {PROGRAM_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
         <select
           className={selectCls}
@@ -201,19 +237,18 @@ export default function EnrollmentOverview({
           <option value="grade">排序：年級</option>
           <option value="campus">排序：校區</option>
         </select>
+      </div>
+      <div className="flex items-center gap-4 flex-wrap">
         <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-          <input
-            type="checkbox"
-            className="rounded"
-            checked={onlyUnassigned}
-            onChange={(e) => handleOnlyUnassignedChange(e.target.checked)}
-          />
+          <input type="checkbox" className="rounded" checked={onlyUnassigned} onChange={(e) => handleOnlyUnassignedChange(e.target.checked)} />
           只看未指定導師
         </label>
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input type="checkbox" className="rounded" checked={onlySchoolStudents} onChange={(e) => setOnlySchoolStudents(e.target.checked)} />
+          只看在校生
+        </label>
         <span className="text-xs text-muted-foreground ml-auto">
-          {search || campusFilter !== 'all' || tutorFilter !== 'all' || onlyUnassigned
-            ? `${filtered.length} / ${rows.length} 人`
-            : `共 ${rows.length} 人`}
+          {isFiltered ? `${filtered.length} / ${rows.length} 人` : `共 ${rows.length} 人`}
         </span>
         <Button variant={assignMode ? 'default' : 'outline'} size="sm" onClick={toggleAssignMode}>
           {assignMode ? '取消分配' : '分配總導師'}
@@ -261,7 +296,7 @@ export default function EnrollmentOverview({
                   <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded" />
                 </TableHead>
               )}
-              <TableHead className="w-32">姓名</TableHead>
+              <TableHead className="w-36">姓名</TableHead>
               <TableHead className="w-20">年級</TableHead>
               <TableHead className="w-40">總導師</TableHead>
               <TableHead>七月課程</TableHead>
@@ -275,9 +310,7 @@ export default function EnrollmentOverview({
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={assignMode ? 9 : 8} className="text-center text-muted-foreground py-8">
-                  {search || campusFilter !== 'all' || tutorFilter !== 'all' || onlyUnassigned
-                    ? '找不到符合的學生'
-                    : '目前無學生資料'}
+                  {isFiltered ? '找不到符合的學生' : '目前無學生資料'}
                 </TableCell>
               </TableRow>
             )}
@@ -289,9 +322,14 @@ export default function EnrollmentOverview({
               const effectiveTutorName = isPending
                 ? (tutorOptions.find((t) => t.id === pendingTutors[r.id])?.name ?? '')
                 : r.mainTutorName;
-              const campusTutors = r.campus
-                ? tutorOptions.filter((t) => t.campus === r.campus)
-                : tutorOptions;
+
+              // 個別 dropdown：依校區 + 學制雙重過濾
+              const dept = deptForProgramType(r.programType);
+              const rowTutors = tutorOptions.filter((t) => {
+                const matchCampus = !r.campus || t.campus === r.campus;
+                const matchDept = !dept || t.department === dept;
+                return matchCampus && matchDept;
+              });
 
               return (
                 <TableRow key={r.id} className={isPending ? 'bg-yellow-50' : undefined}>
@@ -310,6 +348,12 @@ export default function EnrollmentOverview({
                     {r.englishName && (
                       <p className="text-xs text-muted-foreground">{r.englishName}</p>
                     )}
+                    <div className="flex gap-1 mt-0.5 flex-wrap">
+                      <ProgramBadge type={r.programType} />
+                      {r.isSchoolStudent && (
+                        <span className="text-xs px-1.5 py-0.5 rounded border bg-slate-50 text-slate-600 border-slate-200">在校</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.grade}</TableCell>
                   <TableCell className="text-sm">
@@ -322,7 +366,7 @@ export default function EnrollmentOverview({
                         }
                       >
                         <option value="">— 未指定 —</option>
-                        {campusTutors.map((t) => (
+                        {rowTutors.map((t) => (
                           <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                       </select>
