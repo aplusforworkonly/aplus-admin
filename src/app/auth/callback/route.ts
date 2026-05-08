@@ -12,11 +12,13 @@ export async function GET(request: Request) {
     if (!error && data.user) {
       const supabase = createServerClient();
 
-      // Find teacher by email (case-insensitive)
-      const { data: teacher, error: teacherError } = await supabase
+      // Find teacher by email — normalize to lowercase, limit(1) guards against legacy duplicate records
+      const normalizedEmail = (data.user.email ?? '').toLowerCase().trim();
+      const { data: teacher } = await supabase
         .from('teachers')
         .select('id, user_id')
-        .ilike('email', data.user.email ?? '')
+        .ilike('email', normalizedEmail)
+        .limit(1)
         .maybeSingle();
 
       if (teacher) {

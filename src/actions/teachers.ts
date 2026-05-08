@@ -10,7 +10,7 @@ export async function createTeacher(data: {
   department?: string;
 }) {
   const supabase = createServerClient();
-  const { error } = await supabase.from('teachers').insert(data);
+  const { error } = await supabase.from('teachers').insert({ ...data, email: data.email.toLowerCase().trim() });
   if (error) throw new Error(error.message);
   revalidatePath('/teachers');
 }
@@ -24,7 +24,7 @@ export async function updateTeacher(id: string, data: {
   status: string;
 }) {
   const supabase = createServerClient();
-  const { error } = await supabase.from('teachers').update(data).eq('id', id);
+  const { error } = await supabase.from('teachers').update({ ...data, email: data.email.toLowerCase().trim() }).eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath(`/teachers/${id}`);
   revalidatePath('/teachers');
