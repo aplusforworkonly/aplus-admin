@@ -8,8 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 export default async function TeacherPage(props: { searchParams?: Promise<{ tab?: string }> }) {
   const searchParams = await props.searchParams;
   const tabParam = searchParams?.tab;
-  const validTabs = ['leave', 'course', 'purchase', 'departure'];
-  const defaultTab = validTabs.includes(tabParam || '') ? tabParam! : 'leave';
+  const validTabs = ['leave', 'course', 'purchase', 'departure'] as const;
+  const defaultTab = (validTabs.includes((tabParam as typeof validTabs[number]) || 'leave') ? tabParam : 'leave') as typeof validTabs[number];
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) redirect('/login');
