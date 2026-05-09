@@ -58,20 +58,24 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
         {rows.map((r) => {
           const tb = TYPE_BADGE[r.type];
           return (
-            <div key={r.id} className="rounded-xl border shadow-sm p-5 space-y-3 bg-card text-card-foreground">
-              <div className="flex items-center justify-between">
-                <span className={`text-xs px-2.5 py-1 rounded-md font-medium border ${tb?.cls ?? ''}`}>
-                  {tb?.label ?? r.type}
-                </span>
-                <StatusBadge status={r.status} />
+            <div key={r.id} className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs px-2.5 py-1 rounded-md font-medium border ${tb?.cls ?? ''}`}>
+                    {tb?.label ?? r.type}
+                  </span>
+                  <StatusBadge status={r.status} />
+                </div>
+                <p className="font-semibold text-sm text-slate-800">
+                  {r.studentName}
+                  {r.studentEnglishName && <span className="text-xs text-slate-500 ml-1 font-normal">({r.studentEnglishName})</span>}
+                </p>
               </div>
-              <p className="font-semibold text-sm">
-                {r.studentName}
-                {r.studentEnglishName && <span className="text-xs text-muted-foreground ml-1 font-normal">({r.studentEnglishName})</span>}
-              </p>
-              {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
-              {r.reason && <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">{r.reason}</p>}
-              <p className="text-xs text-muted-foreground font-mono mt-2">{formatDate(r.created_at)}</p>
+              <div className="p-4 space-y-3">
+                {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
+                {r.reason && <p className="text-sm text-slate-700 bg-slate-50/50 p-2.5 rounded-md border border-slate-100">{r.reason}</p>}
+                <p className="text-xs text-slate-400 font-mono mt-1">{formatDate(r.created_at)}</p>
+              </div>
             </div>
           );
         })}
