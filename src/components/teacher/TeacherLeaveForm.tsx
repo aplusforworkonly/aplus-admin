@@ -10,6 +10,10 @@ type Course = { id: string; name: string };
 
 const LEAVE_TYPES = ['病假', '事假', '喪假', '其他'];
 const DISEASE_TYPES = ['腸病毒', '流感', '水痘', '麻疹', '病毒性腸胃炎', '登革熱', '以上皆非'];
+const TIME_OPTIONS = [
+  '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', 
+  '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
+];
 
 interface TeacherLeaveFormProps {
   teacherId: string;
@@ -46,6 +50,7 @@ export default function TeacherLeaveForm({
   const [reason, setReason] = useState('');
 
   // 請假專用
+  const [isAllDay, setIsAllDay] = useState(true);
   const [leaveDate, setLeaveDate] = useState('');
   const [leaveDateEnd, setLeaveDateEnd] = useState('');
   const [leaveTimeStart, setLeaveTimeStart] = useState('08:30');
@@ -130,7 +135,7 @@ export default function TeacherLeaveForm({
             fd.append('studentId', studentId);
             proofFileUrl = await uploadMedicalProof(fd);
           }
-          const finalNote = `[時間: ${leaveTimeStart}-${leaveTimeEnd}] ${note}`.trim();
+          const finalNote = isAllDay ? note : `[時間: ${leaveTimeStart}-${leaveTimeEnd}] ${note}`.trim();
           await submitLeaveRequest({
             teacherId,
             studentId,
@@ -287,47 +292,64 @@ export default function TeacherLeaveForm({
       {/* 請假專屬欄位 */}
       {requestType === 'leave' && (
         <>
-          <div className="space-y-2">
-            <p className="text-sm font-medium">請假日期與時間</p>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <input
-                type="date"
-                value={leaveDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
-                className={inputCls + ' sm:w-48'}
-                required
-              />
-              <span className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-md self-center">至</span>
-              <input
-                type="date"
-                value={leaveDateEnd || leaveDate}
-                min={leaveDate}
-                onChange={(e) => setLeaveDateEnd(e.target.value)}
-                className={inputCls + ' sm:w-48'}
-              />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">請假日期與時間</p>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={isAllDay} 
+                  onChange={(e) => setIsAllDay(e.target.checked)}
+                  className="rounded border-slate-300 text-teal-600 focus:ring-teal-600"
+                />
+                全日
+              </label>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
-              <input
-                type="time"
-                value={leaveTimeStart}
-                onChange={(e) => setLeaveTimeStart(e.target.value)}
-                min="08:30"
-                max="16:30"
-                className={inputCls + ' sm:w-48'}
-                required
-              />
-              <span className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-md self-center">至</span>
-              <input
-                type="time"
-                value={leaveTimeEnd}
-                onChange={(e) => setLeaveTimeEnd(e.target.value)}
-                min="08:30"
-                max="16:30"
-                className={inputCls + ' sm:w-48'}
-                required
-              />
+            
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={leaveDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className={`${inputCls} flex-1`}
+                  required
+                />
+                {!isAllDay && (
+                  <select
+                    value={leaveTimeStart}
+                    onChange={(e) => setLeaveTimeStart(e.target.value)}
+                    className={`${selectCls} w-24 sm:w-28 flex-shrink-0 px-2`}
+                  >
+                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
+              </div>
+              
+              <div className="flex justify-center text-sm text-muted-foreground">
+                <span className="bg-muted px-3 py-1 rounded-md">至</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={leaveDateEnd || leaveDate}
+                  min={leaveDate}
+                  onChange={(e) => setLeaveDateEnd(e.target.value)}
+                  className={`${inputCls} flex-1`}
+                />
+                {!isAllDay && (
+                  <select
+                    value={leaveTimeEnd}
+                    onChange={(e) => setLeaveTimeEnd(e.target.value)}
+                    className={`${selectCls} w-24 sm:w-28 flex-shrink-0 px-2`}
+                  >
+                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">時間區間限定為 08:30 - 16:30。</p>
+            {isAllDay && <p className="text-xs text-muted-foreground">單日請假起訖日請選同一天。</p>}
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">假別</p>
