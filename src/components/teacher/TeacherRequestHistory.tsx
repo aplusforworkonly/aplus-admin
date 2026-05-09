@@ -58,20 +58,20 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
         {rows.map((r) => {
           const tb = TYPE_BADGE[r.type];
           return (
-            <div key={r.id} className="rounded-lg border p-4 space-y-2">
+            <div key={r.id} className="rounded-xl border shadow-sm p-5 space-y-3 bg-card text-card-foreground">
               <div className="flex items-center justify-between">
-                <span className={`text-xs px-2 py-0.5 rounded-full border ${tb?.cls ?? ''}`}>
+                <span className={`text-xs px-2.5 py-1 rounded-md font-medium border ${tb?.cls ?? ''}`}>
                   {tb?.label ?? r.type}
                 </span>
                 <StatusBadge status={r.status} />
               </div>
-              <p className="font-medium text-sm">
+              <p className="font-semibold text-sm">
                 {r.studentName}
-                {r.studentEnglishName && <span className="text-xs text-muted-foreground ml-1">({r.studentEnglishName})</span>}
+                {r.studentEnglishName && <span className="text-xs text-muted-foreground ml-1 font-normal">({r.studentEnglishName})</span>}
               </p>
               {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
-              {r.reason && <p className="text-sm text-muted-foreground">{r.reason}</p>}
-              <p className="text-xs text-muted-foreground font-mono">{formatDate(r.created_at)}</p>
+              {r.reason && <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded-md">{r.reason}</p>}
+              <p className="text-xs text-muted-foreground font-mono mt-2">{formatDate(r.created_at)}</p>
             </div>
           );
         })}

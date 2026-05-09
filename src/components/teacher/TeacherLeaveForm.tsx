@@ -1,7 +1,6 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { submitLeaveRequest } from '@/actions/leave-requests';
 import { submitCancelRequest, getStudentEnrollments, type StudentEnrollment } from '@/actions/cancel-requests';
 import { uploadMedicalProof } from '@/actions/upload';
@@ -12,16 +11,25 @@ type Course = { id: string; name: string };
 const LEAVE_TYPES = ['病假', '事假', '喪假', '活動日', '其他'];
 const DISEASE_TYPES = ['腸病毒', '流感', '水痘', '麻疹', '病毒性腸胃炎', '登革熱', '以上皆非'];
 
+interface TeacherLeaveFormProps {
+  teacherId: string;
+  students: Student[];
+  courses: Course[];
+  defaultTab?: 'leave' | 'course';
+}
+
 export default function TeacherLeaveForm({
   teacherId,
   students,
   courses,
-}: {
-  teacherId: string;
-  students: Student[];
-  courses: Course[];
-}) {
-  const [requestType, setRequestType] = useState<'leave' | 'course'>('leave');
+  defaultTab = 'leave',
+}: TeacherLeaveFormProps) {
+  const [requestType, setRequestType] = useState<'leave' | 'course'>(defaultTab);
+  
+  useEffect(() => {
+    setRequestType(defaultTab);
+  }, [defaultTab]);
+
   const [courseAction, setCourseAction] = useState<'cancel' | 'add'>('cancel');
 
   // 共用
@@ -140,7 +148,8 @@ export default function TeacherLeaveForm({
     );
   }
 
-  const selectCls = 'w-full h-9 rounded-md border border-input bg-background px-3 text-sm';
+  const selectCls = 'w-full h-12 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow';
+  const inputCls = 'w-full h-12 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow';
 
   // 加報時排除已有生效合約的課程
   const enrolledCourseIds = new Set(studentEnrollments.map((e) => e.courseId));
@@ -161,19 +170,19 @@ export default function TeacherLeaveForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* 主 Tab */}
-      <div className="flex rounded-lg border overflow-hidden text-sm">
+      {/* 主 Tab - Translated from Stitch Toggle Switch */}
+      <div className="flex w-full mb-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
         <button
           type="button"
           onClick={() => handleTabChange('leave')}
-          className={`flex-1 py-2 transition-colors ${requestType === 'leave' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+          className={`flex-1 py-3 transition-all ${requestType === 'leave' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
         >
           請假通報
         </button>
         <button
           type="button"
           onClick={() => handleTabChange('course')}
-          className={`flex-1 py-2 transition-colors border-l ${requestType === 'course' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+          className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'course' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
         >
           課程異動
         </button>
@@ -181,18 +190,18 @@ export default function TeacherLeaveForm({
 
       {/* 課程異動子選項 */}
       {requestType === 'course' && (
-        <div className="flex rounded-md border overflow-hidden text-xs">
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm shadow-sm">
           <button
             type="button"
             onClick={() => handleCourseActionChange('cancel')}
-            className={`flex-1 py-1.5 transition-colors ${courseAction === 'cancel' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+            className={`flex-1 py-2.5 transition-colors ${courseAction === 'cancel' ? 'bg-slate-100 text-slate-900 font-semibold' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
           >
             取消課程
           </button>
           <button
             type="button"
             onClick={() => handleCourseActionChange('add')}
-            className={`flex-1 py-1.5 transition-colors border-l ${courseAction === 'add' ? 'bg-muted font-medium' : 'hover:bg-muted/50'}`}
+            className={`flex-1 py-2.5 transition-colors border-l border-slate-200 ${courseAction === 'add' ? 'bg-slate-100 text-slate-900 font-semibold' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
           >
             加報課程
           </button>
@@ -261,23 +270,23 @@ export default function TeacherLeaveForm({
       {/* 請假專屬欄位 */}
       {requestType === 'leave' && (
         <>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p className="text-sm font-medium">請假日期</p>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Input
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <input
                 type="date"
                 value={leaveDate}
                 onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full sm:w-40"
+                className={inputCls + ' sm:w-48'}
                 required
               />
-              <span className="text-sm text-muted-foreground">至</span>
-              <Input
+              <span className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-md self-center">至</span>
+              <input
                 type="date"
                 value={leaveDateEnd || leaveDate}
                 min={leaveDate}
                 onChange={(e) => setLeaveDateEnd(e.target.value)}
-                className="w-full sm:w-40"
+                className={inputCls + ' sm:w-48'}
               />
             </div>
             <p className="text-xs text-muted-foreground">單日請假只填左側；連假請填起訖。</p>
@@ -319,13 +328,13 @@ export default function TeacherLeaveForm({
               {!proofFile && <p className="text-xs text-destructive">尚未上傳，無法送出</p>}
             </div>
           )}
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p className="text-sm font-medium">請假原因 <span className="text-destructive">*</span></p>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：發燒、家庭因素" required />
+            <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：發燒、家庭因素" required />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p className="text-sm font-medium">補充說明（選填）</p>
-            <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="其他補充資訊" />
+            <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} placeholder="其他補充資訊" />
           </div>
         </>
       )}
@@ -343,7 +352,7 @@ export default function TeacherLeaveForm({
             placeholder={courseAction === 'cancel' ? '請說明取消課程原因（如：搬家、時間衝突）' : '請說明加報課程原因（如：補修、新增興趣班）'}
             required
             rows={3}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full h-auto rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow"
           />
         </div>
       )}
@@ -355,7 +364,7 @@ export default function TeacherLeaveForm({
           {successMessage}
         </div>
       ) : (
-        <Button type="submit" disabled={pending || !isSubmittable} className="w-full">
+        <Button type="submit" disabled={pending || !isSubmittable} className="w-full h-12 text-base font-bold shadow-md hover:bg-teal-800 bg-teal-900 text-teal-50 active:scale-[0.98] transition-all mt-4">
           {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
         </Button>
       )}

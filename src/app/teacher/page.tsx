@@ -2,9 +2,12 @@ import { createSessionClient, createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import TeacherLeaveForm from '@/components/teacher/TeacherLeaveForm';
 import TeacherRequestHistory from '@/components/teacher/TeacherRequestHistory';
-import Link from 'next/link';
+import { ArrowRight, Info, History } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
-export default async function TeacherPage() {
+export default async function TeacherPage(props: { searchParams?: Promise<{ tab?: string }> }) {
+  const searchParams = await props.searchParams;
+  const defaultTab = searchParams?.tab === 'course' ? 'course' : 'leave';
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) redirect('/login');
@@ -76,36 +79,56 @@ export default async function TeacherPage() {
   const requests = [...cancelRequests, ...leaveRequests].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
-
   return (
-    <div className="min-h-screen flex items-start justify-center bg-muted/30 pt-16 px-4 pb-16">
-      <div className="w-full max-w-2xl space-y-8">
-        <div className="bg-background rounded-xl border shadow-sm p-4 sm:p-8 space-y-6">
-          <div className="flex items-start justify-between gap-3">
+    <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+      <Card className="rounded-xl border-slate-200 shadow-sm bg-slate-50/50">
+        <CardContent className="p-4 sm:p-6">
+          {/* Header Section */}
+          <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-xl font-bold">學生異動回報</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                {teacher.name}　{teacher.campus}
-              </p>
+              <h2 className="text-2xl font-bold text-teal-950 mb-1">學生異動回報</h2>
+              <div className="flex items-center gap-2 text-slate-500 text-sm font-medium">
+                <span>{teacher.name}</span>
+                <span className="w-1 h-1 bg-border rounded-full"></span>
+                <span>{teacher.campus}</span>
+              </div>
             </div>
-            <Link
+            <a
               href="/teacher/students"
-              className="text-xs text-muted-foreground hover:text-foreground border rounded px-2.5 py-1.5 transition-colors hover:bg-muted shrink-0"
+              className="flex items-center gap-1 px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-medium text-teal-800 hover:bg-slate-100 transition-colors shrink-0"
             >
-              查看學生報名狀態 →
-            </Link>
+              查看學生狀態 <ArrowRight className="w-4 h-4" />
+            </a>
           </div>
-          <TeacherLeaveForm teacherId={teacher.id} students={students} courses={courses} />
-        </div>
 
-        <div className="bg-background rounded-xl border shadow-sm p-4 sm:p-8 space-y-4">
-          <div>
-            <h2 className="text-base font-semibold">我的申請與處理進度</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">僅供檢視，如有疑問請聯繫行政人員。</p>
-          </div>
-          <TeacherRequestHistory requests={requests} />
+          <TeacherLeaveForm teacherId={teacher.id} students={students} courses={courses} defaultTab={defaultTab} />
+        </CardContent>
+      </Card>
+
+      {/* Asymmetric Info Card - Translated from Stitch */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-rose-50 text-rose-900 p-5 rounded-xl border border-rose-100">
+          <Info className="w-6 h-6 mb-2 text-rose-700" />
+          <h4 className="font-bold text-sm">注意事項</h4>
+          <p className="text-sm mt-2 opacity-90">
+            請於三日前完成事假報備，以利調課安排。<br />
+            法定傳染病需上傳證明文件始可送出。
+          </p>
+        </div>
+        <div className="bg-teal-900 text-teal-50 p-5 rounded-xl flex flex-col justify-end shadow-md">
+          <History className="w-6 h-6 mb-2 text-teal-300" />
+          <h4 className="font-bold text-sm">進度追蹤</h4>
+          <p className="text-sm mt-2 opacity-90">
+            下方列表為您過去的異動與請假申請，<br />
+            可追蹤行政處理進度。
+          </p>
         </div>
       </div>
-    </div>
+
+      <div className="space-y-4 pt-4">
+        <h3 className="text-xl font-bold text-foreground">我的申請與處理進度</h3>
+        <TeacherRequestHistory requests={requests} />
+      </div>
+    </main>
   );
 }
