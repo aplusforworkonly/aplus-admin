@@ -8,7 +8,7 @@ import { uploadMedicalProof } from '@/actions/upload';
 type Student = { id: string; name: string; english_name?: string | null };
 type Course = { id: string; name: string };
 
-const LEAVE_TYPES = ['病假', '事假', '喪假', '活動日', '其他'];
+const LEAVE_TYPES = ['病假', '事假', '喪假', '其他'];
 const DISEASE_TYPES = ['腸病毒', '流感', '水痘', '麻疹', '病毒性腸胃炎', '登革熱', '以上皆非'];
 
 interface TeacherLeaveFormProps {
