@@ -64,17 +64,21 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
           </p>
         )}
         {filtered.map((r) => (
-          <div key={r.id} className="rounded-lg border p-4 space-y-3">
-            <div>
-              <p className="font-semibold text-base">{r.name}</p>
-              {r.englishName && <p className="text-xs text-muted-foreground">{r.englishName}</p>}
+          <div key={r.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+            {/* 上半部：帶底色的標題區塊 */}
+            <div className="bg-teal-50 px-4 py-3 border-b border-teal-100/50">
+              <p className="font-bold text-teal-950 text-base">{r.name}</p>
+              {r.englishName && <p className="text-xs text-teal-700/80">{r.englishName}</p>}
               {r.classes.length > 0 && (
-                <div className="mt-2 inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                <div className="mt-2 inline-flex items-center rounded bg-white/60 border border-teal-200/50 px-2 py-0.5 text-[11px] font-medium text-teal-800 shadow-sm">
                   {`班級：${r.classes.join('、')}`}
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            
+            {/* 下半部：詳細資訊區塊 */}
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">七月課程</p>
                 <CourseList courses={r.julyEnrollments} month="七月" />
@@ -86,10 +90,10 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
             </div>
             <div className="border-t pt-2 space-y-1">
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium">預填請假日期：</span>{r.leaveNote ?? '—'}
+                <span className="font-medium text-slate-700">預填請假日期：</span><span className="text-slate-600">{r.leaveNote ?? '—'}</span>
               </p>
               <p className="text-xs text-muted-foreground">
-                <span className="font-medium">其他備註：</span>{r.registrationNote ?? '—'}
+                <span className="font-medium text-slate-700">其他備註：</span><span className="text-slate-600">{r.registrationNote ?? '—'}</span>
               </p>
             </div>
           </div>
