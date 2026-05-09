@@ -22,8 +22,8 @@ function CourseList({ courses, month }: { courses: string[]; month: '七月' | '
     return <span className="text-xs text-muted-foreground">—</span>;
   }
   const color = month === '七月'
-    ? 'bg-teal-50 text-teal-700 border-teal-200'
-    : 'bg-slate-100 text-slate-700 border-slate-200';
+    ? 'bg-[#F2F5F3] text-[#344E41] border-[#DADFDA]' // Premium Sage Green
+    : 'bg-[#F8F9FA] text-[#495057] border-[#E9ECEF]'; // Elegant Neutral Slate
   return (
     <div className="flex flex-col gap-1">
       {courses.map((name) => (
