@@ -30,6 +30,15 @@ export default function TeacherLeaveForm({
     setRequestType(defaultTab);
   }, [defaultTab]);
 
+  useEffect(() => {
+    const handleTabChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setRequestType(customEvent.detail);
+    };
+    window.addEventListener('teacherTabChange', handleTabChange);
+    return () => window.removeEventListener('teacherTabChange', handleTabChange);
+  }, []);
+
   const [courseAction, setCourseAction] = useState<'cancel' | 'add'>('cancel');
 
   // 共用
@@ -87,6 +96,8 @@ export default function TeacherLeaveForm({
     setSuccess(false);
     setError('');
     resetForm();
+    window.history.pushState(null, '', `/teacher?tab=${tab}`);
+    window.dispatchEvent(new CustomEvent('teacherTabChange', { detail: tab }));
   }
 
   function handleCourseActionChange(action: 'cancel' | 'add') {
