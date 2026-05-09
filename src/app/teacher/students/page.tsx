@@ -63,19 +63,22 @@ export default async function TeacherStudentsPage() {
     studentClassMap.get(cs.student_id)!.push(suffix ? `${cls.name}（${suffix}）` : cls.name);
   }
 
+  const COURSE_TYPE_ORDER: Record<string, number> = { main_course: 0, camp: 1, trip: 2 };
+
   // 學生 → 七月 / 八月課程
-  const julyMap = new Map<string, string[]>();
-  const augustMap = new Map<string, string[]>();
+  const julyMap = new Map<string, { name: string; order: number }[]>();
+  const augustMap = new Map<string, { name: string; order: number }[]>();
   for (const e of enrollments) {
     const c = (e as any).courses;
     if (!c || c.course_type === 'material') continue;
     const month = (e.start_date ?? '').slice(5, 7);
+    const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     if (month === '07') {
       if (!julyMap.has(e.student_id)) julyMap.set(e.student_id, []);
-      julyMap.get(e.student_id)!.push(c.name);
+      julyMap.get(e.student_id)!.push(entry);
     } else if (month === '08') {
       if (!augustMap.has(e.student_id)) augustMap.set(e.student_id, []);
-      augustMap.get(e.student_id)!.push(c.name);
+      augustMap.get(e.student_id)!.push(entry);
     }
   }
 
@@ -95,8 +98,8 @@ export default async function TeacherStudentsPage() {
     name: s.name ?? '—',
     englishName: s.english_name ?? null,
     classes: studentClassMap.get(s.id) ?? [],
-    julyEnrollments: julyMap.get(s.id) ?? [],
-    augustEnrollments: augustMap.get(s.id) ?? [],
+    julyEnrollments: (julyMap.get(s.id) ?? []).sort((a, b) => a.order - b.order).map(x => x.name),
+    augustEnrollments: (augustMap.get(s.id) ?? []).sort((a, b) => a.order - b.order).map(x => x.name),
     leaves: leaveMap.get(s.id) ?? [],
     leaveNote: s.leave_note ?? null,
     registrationNote: s.registration_note ?? null,
