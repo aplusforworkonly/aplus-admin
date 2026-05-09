@@ -112,7 +112,7 @@ export default async function TeacherPage(props: { searchParams?: Promise<{ tab?
           <h4 className="font-bold text-sm">注意事項</h4>
           <p className="text-sm mt-2 opacity-90">
             請於三日前完成事假報備，以利調課安排。<br />
-            法定傳染病需上傳證明文件始可送出。
+            法定傳染疾病因為與退費相關，需上傳證明文件才可以送出。
           </p>
         </div>
         <div className="bg-teal-900 text-teal-50 p-5 rounded-xl flex flex-col justify-end shadow-md">
