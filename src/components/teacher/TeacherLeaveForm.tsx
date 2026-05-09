@@ -48,6 +48,8 @@ export default function TeacherLeaveForm({
   // 請假專用
   const [leaveDate, setLeaveDate] = useState('');
   const [leaveDateEnd, setLeaveDateEnd] = useState('');
+  const [leaveTimeStart, setLeaveTimeStart] = useState('08:30');
+  const [leaveTimeEnd, setLeaveTimeEnd] = useState('16:30');
   const [leaveType, setLeaveType] = useState('病假');
   const [note, setNote] = useState('');
   const [diseaseType, setDiseaseType] = useState('');
@@ -122,12 +124,13 @@ export default function TeacherLeaveForm({
       try {
         if (requestType === 'leave') {
           let proofFileUrl: string | undefined;
-          if (leaveType === '病假' && proofFile && diseaseType && diseaseType !== '以上皆非') {
+          if ((leaveType === '病假' && proofFile && diseaseType && diseaseType !== '以上皆非') || (leaveType === '喪假' && proofFile)) {
             const fd = new FormData();
             fd.append('file', proofFile);
             fd.append('studentId', studentId);
             proofFileUrl = await uploadMedicalProof(fd);
           }
+          const finalNote = `[時間: ${leaveTimeStart}-${leaveTimeEnd}] ${note}`.trim();
           await submitLeaveRequest({
             teacherId,
             studentId,
@@ -136,7 +139,7 @@ export default function TeacherLeaveForm({
             leaveDateEnd: leaveDateEnd || leaveDate,
             leaveType,
             reason,
-            note,
+            note: finalNote,
             diseaseType: diseaseType || undefined,
             proofFileUrl,
           });
@@ -285,7 +288,7 @@ export default function TeacherLeaveForm({
       {requestType === 'leave' && (
         <>
           <div className="space-y-2">
-            <p className="text-sm font-medium">請假日期</p>
+            <p className="text-sm font-medium">請假日期與時間</p>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <input
                 type="date"
@@ -303,7 +306,28 @@ export default function TeacherLeaveForm({
                 className={inputCls + ' sm:w-48'}
               />
             </div>
-            <p className="text-xs text-muted-foreground">單日請假只填左側；連假請填起訖。</p>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-2">
+              <input
+                type="time"
+                value={leaveTimeStart}
+                onChange={(e) => setLeaveTimeStart(e.target.value)}
+                min="08:30"
+                max="16:30"
+                className={inputCls + ' sm:w-48'}
+                required
+              />
+              <span className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-md self-center">至</span>
+              <input
+                type="time"
+                value={leaveTimeEnd}
+                onChange={(e) => setLeaveTimeEnd(e.target.value)}
+                min="08:30"
+                max="16:30"
+                className={inputCls + ' sm:w-48'}
+                required
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">時間區間限定為 08:30 - 16:30。</p>
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">假別</p>
