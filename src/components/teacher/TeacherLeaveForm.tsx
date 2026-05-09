@@ -174,7 +174,10 @@ export default function TeacherLeaveForm({
       ? '✓ 取消課程申請已送出，行政確認後將自動更新合約狀態。'
       : '✓ 加報課程申請已送出，行政確認後將建立候補合約。';
 
-  const needsProof = requestType === 'leave' && leaveType === '病假' && !!diseaseType && diseaseType !== '以上皆非';
+  const needsProof = requestType === 'leave' && (
+    (leaveType === '病假' && !!diseaseType && diseaseType !== '以上皆非') ||
+    (leaveType === '喪假')
+  );
   const isSubmittable = requestType === 'leave'
     ? !!studentId && !!reason && !!leaveDate && (!needsProof || !!proofFile)
     : !!studentId && !!courseId && !!reason;
@@ -320,9 +323,11 @@ export default function TeacherLeaveForm({
           {needsProof && (
             <div className="rounded-lg bg-muted/60 border border-muted-foreground/20 px-4 py-3 space-y-2">
               <p className="text-sm font-medium">
-                醫療證明上傳
+                {leaveType === '喪假' ? '喪假證明上傳' : '醫療證明上傳'}
                 <span className="text-destructive"> *</span>
-                <span className="ml-2 text-xs font-normal text-muted-foreground">法定傳染病需附證明才可送出</span>
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {leaveType === '喪假' ? '喪假需附證明文件（如訃聞）才可送出' : '法定傳染病需附證明才可送出'}
+                </span>
               </p>
               <label className="flex flex-col items-center justify-center w-full h-24 rounded-md border-2 border-dashed border-muted-foreground/30 bg-background cursor-pointer hover:bg-muted/40 transition-colors">
                 <span className="text-sm text-muted-foreground">
