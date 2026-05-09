@@ -19,7 +19,7 @@ interface TeacherLeaveFormProps {
   teacherId: string;
   students: Student[];
   courses: Course[];
-  defaultTab?: 'leave' | 'course';
+  defaultTab?: 'leave' | 'course' | 'purchase' | 'departure';
 }
 
 export default function TeacherLeaveForm({
@@ -28,7 +28,7 @@ export default function TeacherLeaveForm({
   courses,
   defaultTab = 'leave',
 }: TeacherLeaveFormProps) {
-  const [requestType, setRequestType] = useState<'leave' | 'course'>(defaultTab);
+  const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure'>(defaultTab);
   
   useEffect(() => {
     setRequestType(defaultTab);
@@ -65,6 +65,13 @@ export default function TeacherLeaveForm({
   const [studentEnrollments, setStudentEnrollments] = useState<StudentEnrollment[]>([]);
   const [enrollmentLoading, startEnrollmentTransition] = useTransition();
 
+  // 購買物品專用
+  const [purchaseItem, setPurchaseItem] = useState('T-shirt$250');
+  const [purchaseQty, setPurchaseQty] = useState<number | ''>(1);
+
+  // 學生離校專用
+  const [departureDate, setDepartureDate] = useState('');
+
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [pending, startTransition] = useTransition();
@@ -96,9 +103,11 @@ export default function TeacherLeaveForm({
     setProofFile(null);
     setCourseId('');
     setStudentEnrollments([]);
+    setPurchaseQty(1);
+    setDepartureDate('');
   }
 
-  function handleTabChange(tab: 'leave' | 'course') {
+  function handleTabChange(tab: 'leave' | 'course' | 'purchase' | 'departure') {
     setRequestType(tab);
     setSuccess(false);
     setError('');
@@ -148,6 +157,13 @@ export default function TeacherLeaveForm({
             diseaseType: diseaseType || undefined,
             proofFileUrl,
           });
+        } else if (requestType === 'purchase') {
+          const itemParts = purchaseItem.split('$');
+          const payload = JSON.stringify({ item: itemParts[0], price: parseInt(itemParts[1]), qty: purchaseQty || 1 });
+          await submitCancelRequest({ teacherId, studentId, courseId: null, reason: payload, requestType: 'purchase' });
+        } else if (requestType === 'departure') {
+          const payload = JSON.stringify({ date: departureDate, reason });
+          await submitCancelRequest({ teacherId, studentId, courseId: null, reason: payload, requestType: 'departure' });
         } else {
           await submitCancelRequest({ teacherId, studentId, courseId, reason, requestType: courseAction });
         }
@@ -177,10 +193,14 @@ export default function TeacherLeaveForm({
     : [];
 
   const successMessage = requestType === 'leave'
-    ? '✓ 請假通報已送出，等待行政確認後生效。如需再通報請重新填寫。'
-    : courseAction === 'cancel'
-      ? '✓ 取消課程申請已送出，行政確認後將自動更新合約狀態。'
-      : '✓ 加報課程申請已送出，行政確認後將建立候補合約。';
+    ? '✓ 請假通報已送出，等待行政確認後生效。'
+    : requestType === 'purchase'
+      ? '✓ 購買物品申請已送出，等待行政處理。'
+      : requestType === 'departure'
+        ? '✓ 學生離校通知已送出，等待行政審核與結算。'
+        : courseAction === 'cancel'
+          ? '✓ 取消課程申請已送出，行政確認後將自動更新合約狀態。'
+          : '✓ 加報課程申請已送出，行政確認後將建立候補合約。';
 
   const needsProof = requestType === 'leave' && (
     (leaveType === '病假' && !!diseaseType && diseaseType !== '以上皆非') ||
@@ -188,27 +208,40 @@ export default function TeacherLeaveForm({
   );
   const isSubmittable = requestType === 'leave'
     ? !!studentId && !!reason && !!leaveDate && (!needsProof || !!proofFile)
-    : !!studentId && !!courseId && !!reason;
+    : requestType === 'course'
+      ? !!studentId && !!courseId && !!reason
+      : requestType === 'purchase'
+        ? !!studentId && !!purchaseQty
+        : requestType === 'departure'
+          ? !!studentId && !!departureDate && !!reason
+          : false;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* 主 Tab - Translated from Stitch Toggle Switch */}
-      <div className="flex w-full mb-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
-        <button
-          type="button"
-          onClick={() => handleTabChange('leave')}
-          className={`flex-1 py-3 transition-all ${requestType === 'leave' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
-        >
-          請假通報
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('course')}
-          className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'course' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
-        >
-          課程異動
-        </button>
-      </div>
+      {/* 主 Tab - 只有在 leave 或 course 時顯示切換 */}
+      {(requestType === 'leave' || requestType === 'course') && (
+        <div className="flex w-full mb-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+          <button
+            type="button"
+            onClick={() => handleTabChange('leave')}
+            className={`flex-1 py-3 transition-all ${requestType === 'leave' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
+          >
+            請假通報
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('course')}
+            className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'course' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
+          >
+            課程異動
+          </button>
+        </div>
+      )}
+      {(requestType === 'purchase' || requestType === 'departure') && (
+        <div className="mb-6 font-bold text-lg text-teal-900 border-b pb-2">
+          {requestType === 'purchase' ? '購買物品申請' : '學生離校通知'}
+        </div>
+      )}
 
       {/* 課程異動子選項 */}
       {requestType === 'course' && (
@@ -419,6 +452,57 @@ export default function TeacherLeaveForm({
         </div>
       )}
 
+      {/* 購買物品欄位 */}
+      {requestType === 'purchase' && (
+        <>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">品項 <span className="text-destructive">*</span></p>
+            <select className={selectCls} value={purchaseItem} onChange={(e) => setPurchaseItem(e.target.value)} required>
+              <option value="T-shirt$250">T-shirt ($250)</option>
+              <option value="書包$350">書包 ($350)</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">數量 <span className="text-destructive">*</span></p>
+            <input 
+              type="number" 
+              min={1} 
+              className={inputCls} 
+              value={purchaseQty} 
+              onChange={(e) => setPurchaseQty(e.target.value === '' ? '' : parseInt(e.target.value))} 
+              required 
+            />
+          </div>
+        </>
+      )}
+
+      {/* 學生離校欄位 */}
+      {requestType === 'departure' && (
+        <>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">離校日期 <span className="text-destructive">*</span></p>
+            <input
+              type="date"
+              value={departureDate}
+              onChange={(e) => setDepartureDate(e.target.value)}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">離校原因 <span className="text-destructive">*</span></p>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="請說明離校原因（如：搬家、轉學等）"
+              required
+              rows={3}
+              className="w-full h-auto rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow"
+            />
+          </div>
+        </>
+      )}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {success ? (
@@ -427,7 +511,7 @@ export default function TeacherLeaveForm({
         </div>
       ) : (
         <Button type="submit" disabled={pending || !isSubmittable} className="w-full h-12 text-base font-bold shadow-md hover:bg-teal-800 bg-teal-900 text-teal-50 active:scale-[0.98] transition-all mt-4">
-          {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
+          {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : requestType === 'purchase' ? '送出購買申請' : requestType === 'departure' ? '送出離校通知' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
         </Button>
       )}
     </form>

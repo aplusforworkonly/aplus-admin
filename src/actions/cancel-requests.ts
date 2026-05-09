@@ -39,15 +39,15 @@ export async function getStudentEnrollments(studentId: string): Promise<StudentE
 export async function submitCancelRequest(data: {
   teacherId: string;
   studentId: string;
-  courseId: string;
+  courseId?: string | null;
   reason: string;
-  requestType: 'cancel' | 'add';
+  requestType: 'cancel' | 'add' | 'purchase' | 'departure';
 }) {
   const supabase = createServerClient();
   const { error } = await supabase.from('student_requests').insert({
     teacher_id: data.teacherId,
     student_id: data.studentId,
-    course_id: data.courseId,
+    course_id: data.courseId || null,
     class_id: null,
     reason: data.reason,
     request_type: data.requestType,
@@ -56,11 +56,11 @@ export async function submitCancelRequest(data: {
   revalidatePath('/teacher');
 }
 
-export async function approveCancelRequest(id: string) {
+export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
   const supabase = createServerClient();
   const { data: req, error } = await supabase
     .from('student_requests')
-    .select('student_id, course_id, request_type')
+    .select('student_id, course_id, request_type, reason')
     .eq('id', id)
     .single();
   if (error || !req) throw new Error('找不到申請');
@@ -89,7 +89,7 @@ export async function approveCancelRequest(id: string) {
           .in('class_id', classIds);
       }
     }
-  } else {
+  } else if (req.request_type === 'add') {
     // 加報：建立候補合約，行政人員可進一步確認
     if (req.course_id) {
       const { data: student } = await supabase
@@ -105,6 +105,54 @@ export async function approveCancelRequest(id: string) {
         start_date: new Date().toISOString().split('T')[0],
         status: '候補',
         contract_no: `REQ-${Date.now()}`,
+      });
+    }
+  } else if (req.request_type === 'departure') {
+    let leaveDate = new Date().toISOString().split('T')[0];
+    try {
+      const parsed = JSON.parse(req.reason || '{}');
+      if (parsed.date) leaveDate = parsed.date;
+    } catch (e) {}
+
+    // 1. 變更學生狀態
+    await supabase.from('students').update({ status: '已離校' }).eq('id', req.student_id);
+
+    // 2. 中止所有生效合約
+    const { data: activeEnrollments } = await supabase
+      .from('enrollments')
+      .select('id, notes')
+      .eq('student_id', req.student_id)
+      .eq('status', '生效');
+
+    if (activeEnrollments && activeEnrollments.length > 0) {
+      const eIds = activeEnrollments.map((e) => e.id);
+      await supabase
+        .from('enrollments')
+        .update({ 
+          status: '已中止', 
+          notes: `系統自動中止：離校日期 ${leaveDate}` 
+        })
+        .in('id', eIds);
+    }
+
+    // 3. 移除班級
+    await supabase.from('class_students').delete().eq('student_id', req.student_id);
+
+  } else if (req.request_type === 'purchase') {
+    if (!isCashPaid) {
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(req.reason || '{}');
+      } catch (e) {}
+      
+      const amount = parsed.price && parsed.qty ? parsed.price * parsed.qty : 0;
+      
+      await supabase.from('student_charges').insert({
+        student_id: req.student_id,
+        amount: amount,
+        item_details: parsed,
+        status: 'pending_billing',
+        reference_id: id
       });
     }
   }

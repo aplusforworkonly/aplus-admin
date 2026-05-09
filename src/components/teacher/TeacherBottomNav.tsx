@@ -1,5 +1,5 @@
 'use client';
-import { CalendarRange, BookOpenText, Users } from 'lucide-react';
+import { CalendarRange, BookOpenText, Users, ShoppingBag, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -28,7 +28,7 @@ export default function TeacherBottomNav() {
       label: '學生請假',
       href: '/teacher?tab=leave',
       icon: CalendarRange,
-      isActive: pathname === '/teacher' && activeTab !== 'course',
+      isActive: pathname === '/teacher' && activeTab === 'leave',
     },
     {
       id: 'course',
@@ -36,6 +36,20 @@ export default function TeacherBottomNav() {
       href: '/teacher?tab=course',
       icon: BookOpenText,
       isActive: pathname === '/teacher' && activeTab === 'course',
+    },
+    {
+      id: 'purchase',
+      label: '購買物品',
+      href: '/teacher?tab=purchase',
+      icon: ShoppingBag,
+      isActive: pathname === '/teacher' && activeTab === 'purchase',
+    },
+    {
+      id: 'departure',
+      label: '學生離校',
+      href: '/teacher?tab=departure',
+      icon: LogOut,
+      isActive: pathname === '/teacher' && activeTab === 'departure',
     },
     {
       id: 'students',
@@ -64,14 +78,14 @@ export default function TeacherBottomNav() {
             key={item.label}
             href={item.href}
             onClick={(e) => handleNavClick(e, item)}
-            className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
               item.isActive
-                ? 'bg-teal-50 text-teal-900 scale-100 font-semibold px-4'
-                : 'text-slate-500 hover:bg-slate-50 scale-95 font-medium'
+                ? 'bg-primary/10 text-primary scale-100 font-semibold px-2'
+                : 'text-muted-foreground hover:bg-slate-50 scale-95 font-medium'
             }`}
           >
-            <Icon className="w-6 h-6 mb-1" />
-            <span className="text-[11px] leading-tight">{item.label}</span>
+            <Icon className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight whitespace-nowrap">{item.label}</span>
           </Link>
         );
       })}

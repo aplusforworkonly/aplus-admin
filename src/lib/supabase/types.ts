@@ -127,3 +127,14 @@ export interface Class {
   created_at: string;
   updated_at: string;
 }
+
+export interface StudentCharge {
+  id: string;
+  student_id: string;
+  amount: number;
+  item_details: any;
+  status: 'pending_billing' | 'billed' | 'paid';
+  reference_id: string | null;
+  created_at: string;
+  updated_at: string;
+}

@@ -13,6 +13,12 @@ function RequestTypeBadge({ requestType }: { requestType: string }) {
   if (requestType === 'add') {
     return <Badge variant="secondary">加報課程</Badge>;
   }
+  if (requestType === 'purchase') {
+    return <Badge className="bg-teal-600 hover:bg-teal-700">物品購買</Badge>;
+  }
+  if (requestType === 'departure') {
+    return <Badge variant="destructive">離校通知</Badge>;
+  }
   return <Badge variant="outline">取消課程</Badge>;
 }
 
@@ -114,14 +120,23 @@ export default async function RequestsPage({
                   </TableCell>
                   <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
                   <TableCell className="text-sm">{r.teachers?.name ?? '—'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-48 truncate">
-                    {r.reason}
+                  <TableCell className="text-sm text-muted-foreground max-w-48 truncate" title={r.reason}>
+                    {(() => {
+                      if (r.request_type === 'purchase' || r.request_type === 'departure') {
+                        try {
+                          const parsed = JSON.parse(r.reason || '{}');
+                          if (r.request_type === 'purchase') return `品項：${parsed.item}，數量：${parsed.qty}`;
+                          if (r.request_type === 'departure') return `[離校日期: ${parsed.date}] ${parsed.reason}`;
+                        } catch(e) {}
+                      }
+                      return r.reason;
+                    })()}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(r.created_at).toLocaleDateString('zh-TW')}
                   </TableCell>
                   <TableCell>
-                    <CancelRequestButtons id={r.id} />
+                    <CancelRequestButtons id={r.id} requestType={r.request_type} />
                   </TableCell>
                 </TableRow>
               ))}

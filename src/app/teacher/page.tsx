@@ -7,7 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default async function TeacherPage(props: { searchParams?: Promise<{ tab?: string }> }) {
   const searchParams = await props.searchParams;
-  const defaultTab = searchParams?.tab === 'course' ? 'course' : 'leave';
+  const tabParam = searchParams?.tab;
+  const validTabs = ['leave', 'course', 'purchase', 'departure'];
+  const defaultTab = validTabs.includes(tabParam || '') ? tabParam! : 'leave';
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) redirect('/login');
@@ -49,16 +51,40 @@ export default async function TeacherPage(props: { searchParams?: Promise<{ tab?
   const students = (studentsList ?? []) as { id: string; name: string; english_name?: string | null }[];
   const courses = (coursesList ?? []) as { id: string; name: string }[];
 
-  const cancelRequests = (cancelList ?? []).map((r: any) => ({
-    id: `cancel-${r.id}`,
-    type: (r.request_type === 'add' ? '加報課程' : '取消課程') as '取消課程' | '加報課程',
-    status: r.status,
-    studentName: r.students?.name ?? '—',
-    studentEnglishName: r.students?.english_name ?? null,
-    detail: r.courses?.name ?? null,
-    reason: r.reason ?? '',
-    created_at: r.created_at,
-  }));
+  const cancelRequests = (cancelList ?? []).map((r: any) => {
+    let typeStr = '取消課程';
+    let detailStr = r.courses?.name ?? null;
+    let reasonStr = r.reason ?? '';
+    
+    if (r.request_type === 'add') typeStr = '加報課程';
+    else if (r.request_type === 'purchase') {
+      typeStr = '購買物品';
+      detailStr = null;
+      try {
+        const parsed = JSON.parse(r.reason);
+        reasonStr = `品項：${parsed.item}，數量：${parsed.qty}`;
+      } catch (e) {}
+    }
+    else if (r.request_type === 'departure') {
+      typeStr = '學生離校';
+      detailStr = null;
+      try {
+        const parsed = JSON.parse(r.reason);
+        reasonStr = `[離校日期: ${parsed.date}] ${parsed.reason}`;
+      } catch (e) {}
+    }
+
+    return {
+      id: `cancel-${r.id}`,
+      type: typeStr as any,
+      status: r.status,
+      studentName: r.students?.name ?? '—',
+      studentEnglishName: r.students?.english_name ?? null,
+      detail: detailStr,
+      reason: reasonStr,
+      created_at: r.created_at,
+    };
+  });
 
   const leaveRequests = (leaveList ?? []).map((r: any) => {
     const dateRange = r.leave_date_end && r.leave_date_end !== r.leave_date
