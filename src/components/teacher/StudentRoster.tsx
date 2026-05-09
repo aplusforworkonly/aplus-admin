@@ -66,9 +66,9 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
         {filtered.map((r) => (
           <div key={r.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
             {/* 上半部：帶底色的標題區塊 */}
-            <div className="bg-teal-50 px-4 py-3 border-b border-teal-100/50">
-              <p className="font-bold text-teal-950 text-base">{r.name}</p>
-              {r.englishName && <p className="text-xs text-teal-700/80">{r.englishName}</p>}
+            <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-100">
+              <p className="font-bold text-slate-800 text-base">{r.name}</p>
+              {r.englishName && <p className="text-xs text-slate-500 mt-0.5">{r.englishName}</p>}
               {r.classes.length > 0 && (
                 <div className="mt-2 inline-flex items-center rounded bg-white/60 border border-teal-200/50 px-2 py-0.5 text-[11px] font-medium text-teal-800 shadow-sm">
                   {`班級：${r.classes.join('、')}`}
