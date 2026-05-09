@@ -96,6 +96,7 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
                 <span className="font-medium text-slate-700">其他備註：</span><span className="text-slate-600">{r.registrationNote ?? '—'}</span>
               </p>
             </div>
+            </div>
           </div>
         ))}
       </div>
