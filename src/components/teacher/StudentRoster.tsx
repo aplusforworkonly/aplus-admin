@@ -68,7 +68,9 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
             <div>
               <p className="font-semibold text-base">{r.name}</p>
               {r.englishName && <p className="text-xs text-muted-foreground">{r.englishName}</p>}
-              <p className="text-xs text-muted-foreground mt-0.5">{r.classes.length > 0 ? `班級：${r.classes.join('、')}` : '未分配班級'}</p>
+              <div className="mt-2 inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+                {r.classes.length > 0 ? `班級：${r.classes.join('、')}` : '班級：尚未分配'}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
@@ -120,7 +122,11 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
                   {r.englishName && <p className="text-xs text-muted-foreground">{r.englishName}</p>}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {r.classes.length > 0 ? r.classes.join('、') : '未分配班級'}
+                  {r.classes.length > 0 ? (
+                    <span className="text-slate-700">{r.classes.join('、')}</span>
+                  ) : (
+                    <span className="text-slate-400 italic">尚未分配</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <CourseList courses={r.julyEnrollments} month="七月" />
