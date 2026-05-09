@@ -72,6 +72,13 @@ export async function generateMonthlyInvoices(billingMonth: string) {
       .forEach((i) => ylaChargedStudents.add(i.student_id));
   }
 
+  // Load pending charges
+  const { data: pendingCharges } = await supabase
+    .from('student_charges')
+    .select('id, student_id, amount, item_details')
+    .eq('status', 'pending_billing')
+    .in('student_id', studentIds);
+
   let created = 0;
   let skipped = 0;
 
@@ -90,7 +97,9 @@ export async function generateMonthlyInvoices(billingMonth: string) {
         };
       });
 
-    if (!studentEnrollments.length) continue;
+    const studentPendingCharges = (pendingCharges ?? []).filter((c) => c.student_id === student.id);
+
+    if (!studentEnrollments.length && !studentPendingCharges.length) continue;
 
     const leaveDates = (leaves ?? [])
       .filter((l) => l.student_id === student.id)
@@ -105,7 +114,8 @@ export async function generateMonthlyInvoices(billingMonth: string) {
       chargedMaterialFees: ylaChargedStudents.has(student.id) ? ['YLE教材費'] : [],
     } as any);
     const items = calc.calculate();
-    const totalAmount = items.reduce((sum: number, i: any) => sum + i.amount, 0);
+    let totalAmount = items.reduce((sum: number, i: any) => sum + i.amount, 0);
+    totalAmount += studentPendingCharges.reduce((sum: number, c: any) => sum + c.amount, 0);
 
     // Generate invoice_no via RPC
     const { data: invoiceNo } = await supabase.rpc('generate_invoice_no');
@@ -136,8 +146,39 @@ export async function generateMonthlyInvoices(billingMonth: string) {
       remark: null,
     }));
 
-    const { error: liErr } = await supabase.from('invoice_line_items').insert(lineItems);
-    if (liErr) throw new Error(liErr.message);
+    for (const charge of studentPendingCharges) {
+      let itemName = '物品購買';
+      try {
+        const details = typeof charge.item_details === 'string' 
+          ? JSON.parse(charge.item_details) 
+          : charge.item_details;
+        if (details.item && details.qty) {
+          itemName = `${details.item} x${details.qty}`;
+        }
+      } catch(e) {}
+
+      lineItems.push({
+        invoice_id: invoice.id,
+        item_name: itemName,
+        item_type: '附加費',
+        amount: charge.amount,
+        remark: null,
+      });
+    }
+
+    if (lineItems.length > 0) {
+      const { error: liErr } = await supabase.from('invoice_line_items').insert(lineItems);
+      if (liErr) throw new Error(liErr.message);
+    }
+
+    if (studentPendingCharges.length > 0) {
+      const chargeIds = studentPendingCharges.map((c) => c.id);
+      await supabase
+        .from('student_charges')
+        .update({ status: 'billed', updated_at: new Date().toISOString() })
+        .in('id', chargeIds);
+    }
+
     created++;
   }
 
