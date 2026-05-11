@@ -26,8 +26,8 @@ function CourseList({ courses, month }: { courses: string[]; month: '七月' | '
     : 'bg-[#F8F9FA] text-[#495057] border-[#E9ECEF]'; // Elegant Neutral Slate
   return (
     <div className="flex flex-col gap-1">
-      {courses.map((name) => (
-        <span key={name} className={`text-xs px-2 py-0.5 rounded-full border w-fit ${color}`}>
+      {courses.map((name, i) => (
+        <span key={`${name}-${i}`} className={`text-xs px-2 py-0.5 rounded-full border w-fit ${color}`}>
           {name}
         </span>
       ))}
