@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createServerClient } from '@/lib/supabase/server';
 import EnrollmentTable from '@/components/enrollments/EnrollmentTable';
 
