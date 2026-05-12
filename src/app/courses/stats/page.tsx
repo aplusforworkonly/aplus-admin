@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
+import Link from 'next/link';
 import { createServerClient } from '@/lib/supabase/server';
-import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -27,18 +27,23 @@ const TYPE_BADGE: Record<string, string> = {
   material: 'border border-input text-foreground',
 };
 
-export default async function CourseStatsPage() {
+function isG1(name: string) {
+  return name.includes('小一');
+}
+
+export default async function CourseStatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ group?: string }>;
+}) {
+  const { group } = await searchParams;
   const supabase = createServerClient();
 
   const [{ data: courses }, { data: enrollments }] = await Promise.all([
     supabase.from('courses').select('id, name, course_type, max_capacity'),
-    supabase
-      .from('enrollments')
-      .select('course_id, status')
-      .in('status', ['生效', '候補']),
+    supabase.from('enrollments').select('course_id, status').in('status', ['生效', '候補']),
   ]);
 
-  // Count per course per status
   const countMap: Record<string, { active: number; waitlist: number }> = {};
   for (const e of enrollments ?? []) {
     if (!countMap[e.course_id]) countMap[e.course_id] = { active: 0, waitlist: 0 };
@@ -46,7 +51,7 @@ export default async function CourseStatsPage() {
     if (e.status === '候補') countMap[e.course_id].waitlist++;
   }
 
-  const rows = (courses ?? [])
+  const allRows = (courses ?? [])
     .map((c: any) => ({
       ...c,
       active: countMap[c.id]?.active ?? 0,
@@ -59,16 +64,32 @@ export default async function CourseStatsPage() {
       return a.name.localeCompare(b.name, 'zh-TW');
     });
 
+  const rows = allRows.filter((r: any) => {
+    if (group === 'g1') return isG1(r.name);
+    if (group === 'k26') return !isG1(r.name);
+    return true;
+  });
+
   const totalActive = rows.reduce((s: number, r: any) => s + r.active, 0);
   const totalWaitlist = rows.reduce((s: number, r: any) => s + r.waitlist, 0);
 
+  const tabClass = (val: string | undefined) =>
+    `text-xs px-3 py-1.5 rounded-md border transition-colors ${
+      group === val ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'
+    }`;
+
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-baseline gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <h1 className="text-2xl font-bold">課程報名統計</h1>
         <span className="text-sm text-muted-foreground">
           共 {rows.length} 門課程・生效 {totalActive} 人次・候補 {totalWaitlist} 人次
         </span>
+        <div className="flex gap-1.5 ml-auto">
+          <Link href="/courses/stats" className={tabClass(undefined)}>全部</Link>
+          <Link href="/courses/stats?group=g1" className={tabClass('g1')}>升小一</Link>
+          <Link href="/courses/stats?group=k26" className={tabClass('k26')}>二至六年級</Link>
+        </div>
       </div>
 
       <Table>
