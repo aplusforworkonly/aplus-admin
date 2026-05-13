@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-type LinkDef = { href: string; label: string; countKey?: 'leaves' | 'requests' | 'enrollments'; exact?: boolean };
+type LinkDef = { href: string; label: string; countKey?: 'leaves' | 'requests' | 'enrollments' | 'studentReviews'; exact?: boolean };
 
 const links: LinkDef[] = [
   { href: '/students', label: '學生管理', exact: true },
@@ -18,19 +18,22 @@ const links: LinkDef[] = [
   { href: '/admin/classes/matrix', label: '分班矩陣' },
   { href: '/leaves', label: '請假管理', countKey: 'leaves' },
   { href: '/admin/requests', label: '異動審核', countKey: 'requests' },
+  { href: '/admin/student-reviews', label: '學生資料審核', countKey: 'studentReviews' },
 ];
 
 export default function Sidebar({
   leavesCount = 0,
   requestsCount = 0,
   enrollmentsCount = 0,
+  studentReviewsCount = 0,
 }: {
   leavesCount?: number;
   requestsCount?: number;
   enrollmentsCount?: number;
+  studentReviewsCount?: number;
 }) {
   const pathname = usePathname();
-  const counts = { leaves: leavesCount, requests: requestsCount, enrollments: enrollmentsCount };
+  const counts = { leaves: leavesCount, requests: requestsCount, enrollments: enrollmentsCount, studentReviews: studentReviewsCount };
 
   return (
     <aside className="w-48 border-r min-h-screen p-4 space-y-1 shrink-0">
