@@ -13,7 +13,7 @@ export default async function AdminRosterPage() {
   ] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name, english_name, enrollment_date, main_tutor_id, campus, registration_note, leave_note, program_type, is_school_student')
+      .select('id, name, english_name, enrollment_date, main_tutor_id, campus, registration_note, leave_note, program_type, is_school_student, no_summer_enrollment')
       .eq('status', '就讀中')
       .order('name'),
     supabase
@@ -116,6 +116,7 @@ export default async function AdminRosterPage() {
       hasClass: assignedToClassSet.has(s.id),
       programType: s.program_type ?? null,
       isSchoolStudent: s.is_school_student ?? false,
+      noSummerEnrollment: s.no_summer_enrollment ?? false,
     };
   });
 

@@ -55,7 +55,7 @@ export default function StudentTable({
 }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | '就讀中' | '已離校'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | '就讀中' | '已離校' | '重複建檔'>('all');
   const [campusFilter, setCampusFilter] = useState<'all' | '文府總校' | '龍華校' | '左新校'>('all');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
 
@@ -86,7 +86,7 @@ export default function StudentTable({
           className="max-w-xs"
         />
         <div className="flex gap-1">
-          {(['all', '就讀中', '已離校'] as const).map((s) => (
+          {(['all', '就讀中', '已離校', '重複建檔'] as const).map((s) => (
             <FilterBtn key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
               {s === 'all' ? '全部狀態' : s}
             </FilterBtn>

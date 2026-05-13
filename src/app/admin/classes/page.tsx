@@ -13,16 +13,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   homeroom: '教學班',
   english_core: '英語核心',
   elective: '選修',
+  camp: '冬夏令營課程',
 };
 
-const CATEGORY_ORDER = ['homeroom', 'english_core', 'elective'];
+const CATEGORY_ORDER = ['homeroom', 'english_core', 'elective', 'camp'];
 
 export default async function AdminClassesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; year?: string; term?: string }>;
+  searchParams: Promise<{ tab?: string; year?: string; term?: string; campus?: string }>;
 }) {
-  const { tab, year, term } = await searchParams;
+  const { tab, year, term, campus } = await searchParams;
   const isArchived = tab === 'archived';
 
   const supabase = createServerClient();
@@ -35,11 +36,12 @@ export default async function AdminClassesPage({
 
   if (year) query = query.eq('academic_year', year);
   if (term) query = query.eq('term', term);
+  if (campus) query = query.eq('campus', campus);
 
   const [{ data: classes }, { data: teachers }, { data: courses }, { data: allYearsRaw }, { data: activeEnrollments }] =
     await Promise.all([
       query,
-      supabase.from('teachers').select('id, name, english_name, department').order('name'),
+      supabase.from('teachers').select('id, name, english_name, department').neq('status', '離職').order('name'),
       supabase.from('courses').select('id, name').order('name'),
       supabase.from('classes').select('academic_year').not('academic_year', 'is', null),
       supabase.from('enrollments').select('course_id, student_id').eq('status', '生效'),

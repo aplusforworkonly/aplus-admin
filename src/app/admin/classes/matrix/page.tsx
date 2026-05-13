@@ -63,12 +63,22 @@ export default async function RosteringMatrixPage({
       .order('name'),
     supabase
       .from('enrollments')
-      .select('student_id, students(id, name, english_name, enrollment_date, main_tutor_id, teachers(name))')
+      .select('student_id, students(id, name, english_name, enrollment_date, main_tutor_id)')
       .eq('course_id', courseId)
       .eq('status', '生效'),
   ]);
 
   const studentIds = [...new Set((enrollments ?? []).map((e: any) => e.student_id))];
+
+  // Fetch teacher names separately to avoid inner-join exclusion when main_tutor_id is null or dangling
+  const tutorIds = [...new Set(
+    (enrollments ?? []).map((e: any) => (e.students as any)?.main_tutor_id).filter(Boolean) as string[]
+  )];
+  const tutorMap: Record<string, string> = {};
+  if (tutorIds.length > 0) {
+    const { data: tutors } = await supabase.from('teachers').select('id, name').in('id', tutorIds);
+    for (const t of tutors ?? []) tutorMap[(t as any).id] = (t as any).name;
+  }
   const classIds = (classesData ?? []).map((c: any) => c.id);
 
   const [{ data: currentAssignments }, { data: campEnrollments }] = await Promise.all([
@@ -113,7 +123,7 @@ export default async function RosteringMatrixPage({
         name: s.name,
         englishName: s.english_name ?? null,
         grade: getGrade(s.enrollment_date),
-        mainTutorName: (s.teachers as any)?.name ?? null,
+        mainTutorName: tutorMap[s.main_tutor_id] ?? null,
         assignedClassId: assignmentMap[s.id] ?? null,
         isLocked: lockedStudentIds.has(s.id),
       };

@@ -1,4 +1,4 @@
-export type StudentStatus = '就讀中' | '已離校';
+export type StudentStatus = '就讀中' | '已離校' | '重複建檔';
 export type ProgramType = '全日班' | '單上英語' | '其他';
 export type InvoiceStatus = '未繳' | '部分繳清' | '已結清';
 export type LineItemType = '常規學費' | '附加費' | '單次折抵';

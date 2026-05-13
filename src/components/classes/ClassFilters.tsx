@@ -2,6 +2,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const TERMS = ['上學期', '下學期', '夏令營', '冬令營'];
+const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 export default function ClassFilters({ years }: { years: string[] }) {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function ClassFilters({ years }: { years: string[] }) {
   const tab = params.get('tab') ?? 'active';
   const year = params.get('year') ?? '';
   const term = params.get('term') ?? '';
+  const campus = params.get('campus') ?? '';
 
   function update(key: string, value: string) {
     const next = new URLSearchParams(params.toString());
@@ -51,6 +53,10 @@ export default function ClassFilters({ years }: { years: string[] }) {
       <select className={selectCls} value={term} onChange={(e) => update('term', e.target.value)}>
         <option value="">全部學期</option>
         {TERMS.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <select className={selectCls} value={campus} onChange={(e) => update('campus', e.target.value)}>
+        <option value="">全部校區</option>
+        {CAMPUSES.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
     </div>
   );

@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createClass } from '@/actions/classes';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
+const CAMPUSES = ['全部校區', '文府總校', '龍華校', '左新校'];
 const CATEGORIES = [
   { value: 'homeroom', label: '教學班' },
   { value: 'english_core', label: '英語核心' },
   { value: 'elective', label: '選修' },
+  { value: 'camp', label: '冬夏令營課程' },
 ];
 
 type Teacher = { id: string; name: string; english_name: string | null; department: string | null };
@@ -17,7 +18,7 @@ type Course = { id: string; name: string };
 function filterTeachers(teachers: Teacher[], category: string): Teacher[] {
   if (category === 'homeroom') return teachers.filter((t) => t.department === '教學部');
   if (category === 'english_core') return teachers.filter((t) => t.department === '英語部');
-  if (category === 'elective') return teachers.filter((t) => t.department === '教學部' || t.department === '英語部');
+  if (category === 'elective' || category === 'camp') return teachers.filter((t) => t.department === '教學部' || t.department === '英語部');
   return [];
 }
 
@@ -33,7 +34,7 @@ export default function AddClassForm({
   courses: Course[];
 }) {
   const [name, setName] = useState('');
-  const [campus, setCampus] = useState('文府總校');
+  const [campus, setCampus] = useState('全部校區');
   const [teacherId, setTeacherId] = useState('');
   const [category, setCategory] = useState('homeroom');
   const [programTrack, setProgramTrack] = useState('');

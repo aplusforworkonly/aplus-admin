@@ -26,6 +26,7 @@ export type EnrollmentRow = {
   hasClass: boolean;
   programType: string | null;
   isSchoolStudent: boolean;
+  noSummerEnrollment: boolean;
 };
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
@@ -60,8 +61,11 @@ function ProgramBadge({ type }: { type: string | null }) {
   return <span className={`text-xs px-1.5 py-0.5 rounded border ${cls}`}>{type}</span>;
 }
 
-function CourseList({ courses, month }: { courses: string[]; month: '七月' | '八月' }) {
-  if (courses.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+function CourseList({ courses, month, noEnrollment }: { courses: string[]; month: '七月' | '八月'; noEnrollment?: boolean }) {
+  if (courses.length === 0) {
+    if (noEnrollment) return <span className="text-xs text-muted-foreground italic">不報名</span>;
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
   const color = month === '七月'
     ? 'bg-blue-50 text-blue-700 border-blue-200'
     : 'bg-amber-50 text-amber-700 border-amber-200';
@@ -329,7 +333,8 @@ export default function EnrollmentOverview({
               </TableRow>
             )}
             {filtered.map((r) => {
-              const hasCourse = r.julyEnrollments.length > 0 || r.augustEnrollments.length > 0;
+              const hasAnyCourse = r.julyEnrollments.length > 0 || r.augustEnrollments.length > 0;
+              const hasCourse = hasAnyCourse || r.noSummerEnrollment;
               const isPendingProgram = r.id in pendingProgramTypes;
               const isPendingTutor = r.id in pendingTutors;
               const isPending = isPendingProgram || isPendingTutor;
@@ -403,8 +408,8 @@ export default function EnrollmentOverview({
                       )
                     )}
                   </TableCell>
-                  <TableCell><CourseList courses={r.julyEnrollments} month="七月" /></TableCell>
-                  <TableCell><CourseList courses={r.augustEnrollments} month="八月" /></TableCell>
+                  <TableCell><CourseList courses={r.julyEnrollments} month="七月" noEnrollment={r.noSummerEnrollment} /></TableCell>
+                  <TableCell><CourseList courses={r.augustEnrollments} month="八月" noEnrollment={r.noSummerEnrollment} /></TableCell>
                   <TableCell><LeaveList leaves={r.leaves} /></TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">

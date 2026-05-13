@@ -25,8 +25,7 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Protect /teacher and /leaves routes
-  if ((pathname.startsWith('/teacher') || pathname.startsWith('/leaves')) && !user) {
+  if (pathname.startsWith('/teacher') && !user) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -34,5 +33,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/teacher/:path*', '/leaves/:path*', '/login'],
+  matcher: ['/teacher/:path*', '/login'],
 };
