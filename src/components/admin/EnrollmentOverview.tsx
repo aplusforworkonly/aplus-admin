@@ -408,8 +408,8 @@ export default function EnrollmentOverview({
                       )
                     )}
                   </TableCell>
-                  <TableCell><CourseList courses={r.julyEnrollments} month="七月" noEnrollment={r.noSummerEnrollment} /></TableCell>
-                  <TableCell><CourseList courses={r.augustEnrollments} month="八月" noEnrollment={r.noSummerEnrollment} /></TableCell>
+                  <TableCell><CourseList courses={r.julyEnrollments} month="七月" noEnrollment={r.noSummerEnrollment || (r.augustEnrollments.length > 0 && r.julyEnrollments.length === 0)} /></TableCell>
+                  <TableCell><CourseList courses={r.augustEnrollments} month="八月" noEnrollment={r.noSummerEnrollment || (r.julyEnrollments.length > 0 && r.augustEnrollments.length === 0)} /></TableCell>
                   <TableCell><LeaveList leaves={r.leaves} /></TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
