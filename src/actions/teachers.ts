@@ -40,6 +40,13 @@ export async function deleteTeacher(id: string) {
   revalidatePath('/admin/roster');
 }
 
+export async function toggleSupervisor(id: string, value: boolean) {
+  const supabase = createServerClient();
+  const { error } = await supabase.from('teachers').update({ is_supervisor: value }).eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/teachers');
+}
+
 export async function updateTeacherStudents(teacherId: string, studentIds: string[]) {
   const supabase = createServerClient();
   await supabase.from('teacher_student_mapping').delete().eq('teacher_id', teacherId);

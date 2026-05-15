@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { toggleSupervisor } from '@/actions/teachers';
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
@@ -16,7 +17,42 @@ type Teacher = {
   campus: string | null;
   department: string | null;
   user_id: string | null;
+  is_supervisor: boolean;
 };
+
+function SupervisorToggle({ id, initial }: { id: string; initial: boolean }) {
+  const [isSuper, setIsSuper] = useState(initial);
+  const [pending, startTransition] = useTransition();
+
+  function handleToggle() {
+    const next = !isSuper;
+    setIsSuper(next);
+    startTransition(async () => {
+      try {
+        await toggleSupervisor(id, next);
+      } catch {
+        setIsSuper(!next);
+      }
+    });
+  }
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={pending}
+      title={isSuper ? '點擊取消督導權限' : '點擊設為督導'}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+        isSuper ? 'bg-teal-600' : 'bg-slate-200'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          isSuper ? 'translate-x-4' : 'translate-x-0.5'
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function TeachersTable({ teachers }: { teachers: Teacher[] }) {
   const [search, setSearch] = useState('');
@@ -67,12 +103,13 @@ export default function TeachersTable({ teachers }: { teachers: Teacher[] }) {
             <TableHead>Email</TableHead>
             <TableHead>校區</TableHead>
             <TableHead className="w-24 text-center">帳號狀態</TableHead>
+            <TableHead className="w-20 text-center">督導權限</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filtered.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                 {search || campusFilter !== 'all' ? '找不到符合的老師' : '尚無老師資料'}
               </TableCell>
             </TableRow>
@@ -92,6 +129,9 @@ export default function TeachersTable({ teachers }: { teachers: Teacher[] }) {
                 {t.user_id
                   ? <Badge variant="default">已連結</Badge>
                   : <Badge variant="outline">待登入</Badge>}
+              </TableCell>
+              <TableCell className="text-center">
+                <SupervisorToggle id={t.id} initial={t.is_supervisor} />
               </TableCell>
             </TableRow>
           ))}

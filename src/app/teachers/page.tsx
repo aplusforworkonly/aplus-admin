@@ -7,7 +7,7 @@ export default async function TeachersPage() {
   const supabase = createServerClient();
   const { data: teachers } = await supabase
     .from('teachers')
-    .select('id, name, english_name, email, campus, department, status, user_id')
+    .select('id, name, english_name, email, campus, department, status, user_id, is_supervisor')
     .neq('status', '離職')
     .order('name');
 
