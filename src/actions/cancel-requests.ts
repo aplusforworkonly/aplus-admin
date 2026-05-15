@@ -60,7 +60,7 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
   const supabase = createServerClient();
   const { data: req, error } = await supabase
     .from('student_requests')
-    .select('student_id, course_id, request_type, reason')
+    .select('student_id, course_id, request_type, reason, status')
     .eq('id', id)
     .single();
   if (error || !req) throw new Error('找不到申請');
@@ -163,6 +163,13 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
     handled_by: handledBy,
     handled_at: new Date().toISOString(),
   }).eq('id', id);
+  await supabase.from('request_audit_log').insert({
+    request_table: 'student_requests',
+    request_id: id,
+    from_status: req.status ?? 'pending',
+    to_status: 'approved',
+    handled_by: handledBy,
+  });
   revalidatePath('/admin/requests');
   revalidatePath('/admin/classes');
   revalidatePath('/enrollments');
@@ -170,11 +177,25 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
 
 export async function rejectCancelRequest(id: string) {
   const supabase = createServerClient();
+
+  const { data: req } = await supabase
+    .from('student_requests')
+    .select('status')
+    .eq('id', id)
+    .single();
+
   const handledBy = await getHandledBy(supabase);
   await supabase.from('student_requests').update({
     status: 'rejected',
     handled_by: handledBy,
     handled_at: new Date().toISOString(),
   }).eq('id', id);
+  await supabase.from('request_audit_log').insert({
+    request_table: 'student_requests',
+    request_id: id,
+    from_status: req?.status ?? 'pending',
+    to_status: 'rejected',
+    handled_by: handledBy,
+  });
   revalidatePath('/admin/requests');
 }

@@ -138,3 +138,13 @@ export interface StudentCharge {
   created_at: string;
   updated_at: string;
 }
+
+export interface RequestAuditLog {
+  id: string;
+  request_table: 'leave_requests' | 'student_requests';
+  request_id: string;
+  from_status: string;
+  to_status: string;
+  handled_by: string | null;
+  created_at: string;
+}

@@ -59,17 +59,38 @@ export async function approveLeaveRequest(id: string) {
     handled_by: handledBy,
     handled_at: new Date().toISOString(),
   }).eq('id', id);
+  await supabase.from('request_audit_log').insert({
+    request_table: 'leave_requests',
+    request_id: id,
+    from_status: req.status,
+    to_status: 'approved',
+    handled_by: handledBy,
+  });
   revalidatePath('/leaves');
 }
 
 export async function rejectLeaveRequest(id: string) {
   const supabase = createServerClient();
+
+  const { data: req } = await supabase
+    .from('leave_requests')
+    .select('status')
+    .eq('id', id)
+    .single();
+
   const handledBy = await getHandledBy(supabase);
   await supabase.from('leave_requests').update({
     status: 'rejected',
     handled_by: handledBy,
     handled_at: new Date().toISOString(),
   }).eq('id', id);
+  await supabase.from('request_audit_log').insert({
+    request_table: 'leave_requests',
+    request_id: id,
+    from_status: req?.status ?? 'pending',
+    to_status: 'rejected',
+    handled_by: handledBy,
+  });
   revalidatePath('/leaves');
 }
 
