@@ -13,6 +13,7 @@ export async function createTeacher(data: {
   const { error } = await supabase.from('teachers').insert({ ...data, email: data.email.toLowerCase().trim() });
   if (error) throw new Error(error.message);
   revalidatePath('/teachers');
+  revalidatePath('/admin/roster');
 }
 
 export async function updateTeacher(id: string, data: {
@@ -28,6 +29,7 @@ export async function updateTeacher(id: string, data: {
   if (error) throw new Error(error.message);
   revalidatePath(`/teachers/${id}`);
   revalidatePath('/teachers');
+  revalidatePath('/admin/roster');
 }
 
 export async function deleteTeacher(id: string) {
@@ -35,6 +37,7 @@ export async function deleteTeacher(id: string) {
   const { error } = await supabase.from('teachers').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/teachers');
+  revalidatePath('/admin/roster');
 }
 
 export async function updateTeacherStudents(teacherId: string, studentIds: string[]) {
