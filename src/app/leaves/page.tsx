@@ -24,6 +24,7 @@ export default async function LeavesPage({
   const endDate = new Date(y, m, 1).toISOString().split('T')[0];
 
   const [{ data: leaves }, { data: pending }, { data: history }] = await Promise.all([
+
     supabase
       .from('student_leaves')
       .select('id, leave_date, leave_type, note, students(name, english_name, campus)')
@@ -43,12 +44,54 @@ export default async function LeavesPage({
       .limit(50),
   ]);
 
+  const leaveHistoryIds = (history ?? []).map((r: any) => r.id);
+  let leaveAuditByRequestId: Record<string, any[]> = {};
+  if (leaveHistoryIds.length > 0) {
+    const { data: auditLogs } = await supabase
+      .from('request_audit_log')
+      .select('request_id, from_status, to_status, created_at, teachers(name)')
+      .in('request_id', leaveHistoryIds)
+      .order('created_at');
+    for (const log of auditLogs ?? []) {
+      if (!leaveAuditByRequestId[log.request_id]) leaveAuditByRequestId[log.request_id] = [];
+      leaveAuditByRequestId[log.request_id].push(log);
+    }
+  }
+
   const filteredPending = (pending ?? []).filter((r: any) =>
     !campus || (r.students as any)?.campus === campus
   );
   const filteredLeaves = (leaves ?? []).filter((l: any) =>
     !campus || (l.students as any)?.campus === campus
   );
+
+  function statusLabel(s: string) {
+    if (s === 'pending') return '待審';
+    if (s === 'approved') return '核准';
+    if (s === 'rejected') return '退回';
+    return s;
+  }
+
+  function AuditLogEntries({ logs }: { logs: any[] }) {
+    if (logs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+    return (
+      <div className="space-y-1">
+        {logs.map((log: any, i: number) => (
+          <div key={i} className="text-xs flex items-center gap-1">
+            <span className="text-muted-foreground">{statusLabel(log.from_status)}</span>
+            <span className="text-muted-foreground">→</span>
+            <span className={log.to_status === 'approved' ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+              {statusLabel(log.to_status)}
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-muted-foreground">{log.teachers?.name ?? '—'}</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="text-muted-foreground">{new Date(log.created_at).toLocaleDateString('zh-TW')}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const LEAVE_TYPE_COLOR: Record<string, string> = {
     '病假': 'bg-red-50 text-red-700 border-red-200',
@@ -254,7 +297,8 @@ export default async function LeavesPage({
                   <TableHead>請假日期</TableHead>
                   <TableHead>處理人員</TableHead>
                   <TableHead>處理時間</TableHead>
-                  <TableHead className="w-20 text-right">結果</TableHead>
+                  <TableHead className="w-20">結果</TableHead>
+                  <TableHead>審核歷程</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -289,10 +333,13 @@ export default async function LeavesPage({
                     <TableCell className="text-sm">
                       {r.handled_at ? new Date(r.handled_at).toLocaleDateString('zh-TW') : '—'}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Badge variant={r.status === 'approved' ? 'default' : 'outline'}>
                         {r.status === 'approved' ? '已核准' : '已退回'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <AuditLogEntries logs={leaveAuditByRequestId[r.id] ?? []} />
                     </TableCell>
                   </TableRow>
                 ))}

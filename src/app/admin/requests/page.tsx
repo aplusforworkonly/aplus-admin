@@ -9,6 +9,34 @@ import Link from 'next/link';
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
+function statusLabel(s: string) {
+  if (s === 'pending') return '待審';
+  if (s === 'approved') return '核准';
+  if (s === 'rejected') return '退回';
+  return s;
+}
+
+function AuditLogEntries({ logs }: { logs: any[] }) {
+  if (logs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <div className="space-y-1">
+      {logs.map((log: any, i: number) => (
+        <div key={i} className="text-xs flex items-center gap-1">
+          <span className="text-muted-foreground">{statusLabel(log.from_status)}</span>
+          <span className="text-muted-foreground">→</span>
+          <span className={log.to_status === 'approved' ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+            {statusLabel(log.to_status)}
+          </span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-muted-foreground">{log.teachers?.name ?? '—'}</span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-muted-foreground">{new Date(log.created_at).toLocaleDateString('zh-TW')}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RequestTypeBadge({ requestType }: { requestType: string }) {
   if (requestType === 'add') {
     return <Badge variant="secondary">加報課程</Badge>;
@@ -43,6 +71,20 @@ export default async function RequestsPage({
       .order('handled_at', { ascending: false })
       .limit(50),
   ]);
+
+  const historyIds = (history ?? []).map((r: any) => r.id);
+  let auditByRequestId: Record<string, any[]> = {};
+  if (historyIds.length > 0) {
+    const { data: auditLogs } = await supabase
+      .from('request_audit_log')
+      .select('request_id, from_status, to_status, created_at, teachers(name)')
+      .in('request_id', historyIds)
+      .order('created_at');
+    for (const log of auditLogs ?? []) {
+      if (!auditByRequestId[log.request_id]) auditByRequestId[log.request_id] = [];
+      auditByRequestId[log.request_id].push(log);
+    }
+  }
 
   const filteredPending = (pending ?? []).filter((r: any) =>
     !campus || (r.students as any)?.campus === campus
@@ -161,7 +203,8 @@ export default async function RequestsPage({
                   <TableHead>申請老師</TableHead>
                   <TableHead>處理人員</TableHead>
                   <TableHead>處理時間</TableHead>
-                  <TableHead className="w-20 text-right">結果</TableHead>
+                  <TableHead className="w-20">結果</TableHead>
+                  <TableHead>審核歷程</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -182,10 +225,13 @@ export default async function RequestsPage({
                     <TableCell className="text-sm">
                       {r.handled_at ? new Date(r.handled_at).toLocaleDateString('zh-TW') : '—'}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Badge variant={r.status === 'approved' ? 'default' : 'outline'}>
                         {r.status === 'approved' ? '已核准' : '已退回'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <AuditLogEntries logs={auditByRequestId[r.id] ?? []} />
                     </TableCell>
                   </TableRow>
                 ))}
