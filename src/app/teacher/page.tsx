@@ -29,13 +29,13 @@ export default async function TeacherPage(props: {
   if (!selfTeacher) redirect('/');
 
   // 解析督導目標：非督導者忽略 view param
-  let targetTeacher: { id: string; name: string; campus: string } = selfTeacher;
-  let allTeachers: { id: string; name: string; campus: string }[] = [];
+  let targetTeacher: { id: string; name: string; english_name?: string | null; campus: string } = selfTeacher;
+  let allTeachers: { id: string; name: string; english_name: string | null; campus: string }[] = [];
 
   if (selfTeacher.is_supervisor) {
     const { data: teachers } = await supabase
       .from('teachers')
-      .select('id, name, campus')
+      .select('id, name, english_name, campus')
       .eq('status', '在職')
       .order('campus')
       .order('name');
