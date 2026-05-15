@@ -1,26 +1,53 @@
 import { createSessionClient, createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { Eye } from 'lucide-react';
 import StudentRoster, { type StudentRow } from '@/components/teacher/StudentRoster';
+import TeacherViewSwitcher from '@/components/teacher/TeacherViewSwitcher';
 
-export default async function TeacherStudentsPage() {
+export default async function TeacherStudentsPage(
+  props: { searchParams?: Promise<{ view?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const viewParam = searchParams?.view;
+
   const session = await createSessionClient();
   const { data: { user } } = await session.auth.getUser();
   if (!user) redirect('/login');
 
   const supabase = createServerClient();
-  const { data: teacher } = await supabase
+  const { data: selfTeacher } = await supabase
     .from('teachers')
-    .select('id, name, campus')
+    .select('id, name, campus, is_supervisor')
     .eq('user_id', user.id)
     .single();
-  if (!teacher) redirect('/');
+  if (!selfTeacher) redirect('/');
 
-  // 以總導師 ID 直接找學生
+  // 解析督導目標：非督導者忽略 view param
+  let targetTeacher: { id: string; name: string; campus: string } = selfTeacher;
+  let allTeachers: { id: string; name: string; campus: string }[] = [];
+
+  if (selfTeacher.is_supervisor) {
+    const { data: teachers } = await supabase
+      .from('teachers')
+      .select('id, name, campus')
+      .eq('status', '在職')
+      .order('campus')
+      .order('name');
+    allTeachers = teachers ?? [];
+
+    if (viewParam) {
+      const viewed = allTeachers.find(t => t.id === viewParam);
+      if (viewed) targetTeacher = viewed;
+    }
+  }
+
+  const isViewingOther = targetTeacher.id !== selfTeacher.id;
+
   const { data: students } = await supabase
     .from('students')
     .select('id, name, english_name, leave_note, registration_note')
-    .eq('main_tutor_id', teacher.id)
+    .eq('main_tutor_id', targetTeacher.id)
     .eq('status', '就讀中')
     .order('name');
 
@@ -53,7 +80,6 @@ export default async function TeacherStudentsPage() {
     leaveData = lvData ?? [];
   }
 
-  // 學生 → 班級名稱列表
   const studentClassMap = new Map<string, string[]>();
   for (const cs of classStudents) {
     const cls = (cs as any).classes;
@@ -65,7 +91,6 @@ export default async function TeacherStudentsPage() {
 
   const COURSE_TYPE_ORDER: Record<string, number> = { main_course: 0, camp: 1, trip: 2 };
 
-  // 學生 → 七月 / 八月課程
   const julyMap = new Map<string, { name: string; order: number }[]>();
   const augustMap = new Map<string, { name: string; order: number }[]>();
   for (const e of enrollments) {
@@ -82,7 +107,6 @@ export default async function TeacherStudentsPage() {
     }
   }
 
-  // 學生 → 請假資料
   const leaveMap = new Map<string, { date: string; endDate: string | null; note: string | null }[]>();
   for (const l of leaveData) {
     if (!leaveMap.has(l.student_id)) leaveMap.set(l.student_id, []);
@@ -105,24 +129,45 @@ export default async function TeacherStudentsPage() {
     registrationNote: s.registration_note ?? null,
   }));
 
+  const backHref = isViewingOther ? `/teacher?view=${targetTeacher.id}` : '/teacher';
+
   return (
     <div className="min-h-screen flex items-start justify-center bg-muted/30 pt-16 px-4 pb-16">
       <div className="w-full max-w-4xl space-y-6">
+        {/* 督導切換器 */}
+        {selfTeacher.is_supervisor && (
+          <TeacherViewSwitcher
+            allTeachers={allTeachers}
+            selfId={selfTeacher.id}
+            currentViewId={targetTeacher.id}
+          />
+        )}
+
         <div className="flex items-center justify-between">
           <div>
-            <Link href="/teacher" className="text-sm text-muted-foreground hover:text-foreground">
+            <Link href={backHref} className="text-sm text-muted-foreground hover:text-foreground">
               ← 返回
             </Link>
-            <h1 className="text-xl font-bold mt-1">我的學生</h1>
+            {isViewingOther && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-600 font-medium mt-1 mb-0.5">
+                <Eye className="w-3 h-3" />
+                督導模式
+              </div>
+            )}
+            <h1 className="text-xl font-bold mt-1">
+              {isViewingOther ? `正在查看：${targetTeacher.name} 老師的學生` : '我的學生'}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {teacher.name}　{teacher.campus}
+              {targetTeacher.name}　{targetTeacher.campus}
             </p>
           </div>
         </div>
 
         {rows.length === 0 ? (
           <div className="bg-background rounded-xl border shadow-sm p-8 text-center text-sm text-muted-foreground">
-            目前沒有設定您為總導師的學生。
+            {isViewingOther
+              ? `目前沒有設定 ${targetTeacher.name} 老師為總導師的學生。`
+              : '目前沒有設定您為總導師的學生。'}
           </div>
         ) : (
           <div className="bg-background rounded-xl border shadow-sm p-6">

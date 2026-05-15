@@ -22,39 +22,47 @@ export default function TeacherBottomNav() {
     return () => window.removeEventListener('teacherTabChange', handleTabChange);
   }, []);
 
+  const view = searchParams.get('view');
+
+  function withView(href: string) {
+    if (!view) return href;
+    const sep = href.includes('?') ? '&' : '?';
+    return `${href}${sep}view=${view}`;
+  }
+
   const navItems = [
     {
       id: 'leave',
       label: '學生請假',
-      href: '/teacher?tab=leave',
+      href: withView('/teacher?tab=leave'),
       icon: CalendarRange,
       isActive: pathname === '/teacher' && activeTab === 'leave',
     },
     {
       id: 'course',
       label: '課程變動',
-      href: '/teacher?tab=course',
+      href: withView('/teacher?tab=course'),
       icon: BookOpenText,
       isActive: pathname === '/teacher' && activeTab === 'course',
     },
     {
       id: 'purchase',
       label: '購買物品',
-      href: '/teacher?tab=purchase',
+      href: withView('/teacher?tab=purchase'),
       icon: ShoppingBag,
       isActive: pathname === '/teacher' && activeTab === 'purchase',
     },
     {
       id: 'departure',
       label: '學生離校',
-      href: '/teacher?tab=departure',
+      href: withView('/teacher?tab=departure'),
       icon: LogOut,
       isActive: pathname === '/teacher' && activeTab === 'departure',
     },
     {
       id: 'students',
       label: '報名狀況',
-      href: '/teacher/students',
+      href: withView('/teacher/students'),
       icon: Users,
       isActive: pathname === '/teacher/students',
     },
