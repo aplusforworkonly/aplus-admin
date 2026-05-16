@@ -20,7 +20,10 @@ export default async function TeachersPage() {
         <ImportTeachersButton />
       </div>
 
-      <TeachersTable teachers={(teachers ?? []) as any} />
+      <TeachersTable
+        teachers={(teachers ?? []) as any}
+        allActiveTeachers={(teachers ?? []).filter((t: any) => t.status === '在職') as any}
+      />
     </div>
   );
 }

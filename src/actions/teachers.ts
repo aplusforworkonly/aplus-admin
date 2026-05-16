@@ -47,6 +47,26 @@ export async function toggleSupervisor(id: string, value: boolean) {
   revalidatePath('/teachers');
 }
 
+export async function getSupervisorAccess(supervisorId: string): Promise<string[]> {
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from('supervisor_teacher_access')
+    .select('viewable_teacher_id')
+    .eq('supervisor_id', supervisorId);
+  return (data ?? []).map((r: any) => r.viewable_teacher_id);
+}
+
+export async function setSupervisorAccess(supervisorId: string, teacherIds: string[]): Promise<void> {
+  const supabase = createServerClient();
+  await supabase.from('supervisor_teacher_access').delete().eq('supervisor_id', supervisorId);
+  if (teacherIds.length > 0) {
+    await supabase.from('supervisor_teacher_access').insert(
+      teacherIds.map((id) => ({ supervisor_id: supervisorId, viewable_teacher_id: id }))
+    );
+  }
+  revalidatePath('/teachers');
+}
+
 export async function updateTeacherStudents(teacherId: string, studentIds: string[]) {
   const supabase = createServerClient();
   await supabase.from('teacher_student_mapping').delete().eq('teacher_id', teacherId);

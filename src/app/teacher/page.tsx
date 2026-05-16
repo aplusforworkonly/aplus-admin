@@ -41,6 +41,16 @@ export default async function TeacherPage(props: {
       .order('name');
     allTeachers = teachers ?? [];
 
+    // 過濾可見範圍
+    const { data: accessRows } = await supabase
+      .from('supervisor_teacher_access')
+      .select('viewable_teacher_id')
+      .eq('supervisor_id', selfTeacher.id);
+    const accessIds = (accessRows ?? []).map((r: any) => r.viewable_teacher_id);
+    if (accessIds.length > 0) {
+      allTeachers = allTeachers.filter(t => accessIds.includes(t.id));
+    }
+
     if (viewParam) {
       const viewed = allTeachers.find(t => t.id === viewParam);
       if (viewed) targetTeacher = viewed;
