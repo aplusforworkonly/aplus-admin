@@ -12,12 +12,18 @@ const FIELD_LABELS: Record<string, string> = {
 export default async function StudentReviewsPage() {
   const supabase = createServerClient();
 
-  const [{ data: reviews }, { data: allStudents }] = await Promise.all([
+  const [{ data: reviews }, { data: resolvedReviews }, { data: allStudents }] = await Promise.all([
     supabase
       .from('student_review_requests')
       .select('id, proposed_changes, created_at, students(id, name)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true }),
+    supabase
+      .from('student_review_requests')
+      .select('id, status, proposed_changes, resolved_at, students(name)')
+      .in('status', ['approved', 'rejected'])
+      .order('resolved_at', { ascending: false })
+      .limit(30),
     supabase
       .from('students')
       .select('id, name, english_name, campus, id_number, status')
@@ -25,6 +31,23 @@ export default async function StudentReviewsPage() {
   ]);
 
   const pending = reviews ?? [];
+  const resolved = resolvedReviews ?? [];
+
+  // Fetch audit logs for resolved reviews
+  const resolvedIds = resolved.map((r) => r.id);
+  let auditByRequestId: Record<string, { to_status: string; created_at: string; teachers: { name: string } | null }> = {};
+  if (resolvedIds.length > 0) {
+    const { data: auditLogs } = await supabase
+      .from('request_audit_log')
+      .select('request_id, to_status, created_at, teachers(name)')
+      .in('request_id', resolvedIds)
+      .order('created_at', { ascending: false });
+    for (const log of auditLogs ?? []) {
+      if (!auditByRequestId[log.request_id]) {
+        auditByRequestId[log.request_id] = log as any;
+      }
+    }
+  }
 
   // 找出同名同英文名的重複學生群組
   type RawStudent = { id: string; name: string; english_name: string | null; campus: string | null; id_number: string | null };
@@ -164,6 +187,70 @@ export default async function StudentReviewsPage() {
           </div>
         )}
       </div>
+
+      {/* 已處理歷史紀錄 */}
+      {resolved.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">已處理紀錄</h2>
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">學生</th>
+                  <th className="text-left px-4 py-2 font-medium">欄位</th>
+                  <th className="text-left px-4 py-2 font-medium">舊資料</th>
+                  <th className="text-left px-4 py-2 font-medium">新資料</th>
+                  <th className="text-left px-4 py-2 font-medium">結果</th>
+                  <th className="text-left px-4 py-2 font-medium">審核人</th>
+                  <th className="text-left px-4 py-2 font-medium">審核時間</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resolved.map((r) => {
+                  const student = r.students as unknown as { name: string } | null;
+                  const changes = r.proposed_changes as Record<string, { old: unknown; new: unknown }>;
+                  const fields = Object.entries(changes);
+                  const audit = auditByRequestId[r.id];
+                  const isApproved = r.status === 'approved';
+                  return fields.map(([field, diff], idx) => (
+                    <tr key={`${r.id}-${field}`} className="border-t hover:bg-muted/30">
+                      {idx === 0 && (
+                        <td className="px-4 py-2 font-medium" rowSpan={fields.length}>
+                          {student?.name ?? '—'}
+                        </td>
+                      )}
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {FIELD_LABELS[field] ?? field}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground">{String(diff.old ?? '（空白）')}</td>
+                      <td className="px-4 py-2">{String(diff.new ?? '（空白）')}</td>
+                      {idx === 0 && (
+                        <td className="px-4 py-2" rowSpan={fields.length}>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${isApproved ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {isApproved ? '核准' : '拒絕'}
+                          </span>
+                        </td>
+                      )}
+                      {idx === 0 && (
+                        <td className="px-4 py-2 text-muted-foreground text-xs" rowSpan={fields.length}>
+                          {(audit?.teachers as any)?.name ?? '—'}
+                        </td>
+                      )}
+                      {idx === 0 && (
+                        <td className="px-4 py-2 text-muted-foreground text-xs" rowSpan={fields.length}>
+                          {r.resolved_at
+                            ? new Date(r.resolved_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })
+                            : '—'}
+                        </td>
+                      )}
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

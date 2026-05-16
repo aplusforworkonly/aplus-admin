@@ -1,13 +1,25 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { createServerClient } from '@/lib/supabase/server';
+import { createServerClient, createSessionClient } from '@/lib/supabase/server';
+
+async function getHandledBy(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
+  try {
+    const sessionClient = await createSessionClient();
+    const { data: { user } } = await sessionClient.auth.getUser();
+    if (!user) return null;
+    const { data: t } = await supabase.from('teachers').select('id').eq('user_id', user.id).single();
+    return t?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function approveStudentReview(id: string) {
   const supabase = createServerClient();
 
   const { data: review, error } = await supabase
     .from('student_review_requests')
-    .select('student_id, proposed_changes')
+    .select('student_id, proposed_changes, status')
     .eq('id', id)
     .single();
 
@@ -26,10 +38,18 @@ export async function approveStudentReview(id: string) {
 
   if (updateErr) throw new Error('更新學生資料失敗：' + updateErr.message);
 
+  const handledBy = await getHandledBy(supabase);
   await supabase
     .from('student_review_requests')
     .update({ status: 'approved', resolved_at: new Date().toISOString() })
     .eq('id', id);
+  await supabase.from('request_audit_log').insert({
+    request_table: 'student_review_requests',
+    request_id: id,
+    from_status: review.status ?? 'pending',
+    to_status: 'approved',
+    handled_by: handledBy,
+  });
 
   revalidatePath('/admin/student-reviews');
 }
@@ -37,10 +57,24 @@ export async function approveStudentReview(id: string) {
 export async function rejectStudentReview(id: string) {
   const supabase = createServerClient();
 
+  const { data: review } = await supabase
+    .from('student_review_requests')
+    .select('status')
+    .eq('id', id)
+    .single();
+
+  const handledBy = await getHandledBy(supabase);
   await supabase
     .from('student_review_requests')
     .update({ status: 'rejected', resolved_at: new Date().toISOString() })
     .eq('id', id);
+  await supabase.from('request_audit_log').insert({
+    request_table: 'student_review_requests',
+    request_id: id,
+    from_status: review?.status ?? 'pending',
+    to_status: 'rejected',
+    handled_by: handledBy,
+  });
 
   revalidatePath('/admin/student-reviews');
 }
