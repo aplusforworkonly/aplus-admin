@@ -2,13 +2,21 @@
 import { useState, useTransition, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { submitLeaveRequest } from '@/actions/leave-requests';
 import { submitCancelRequest, getStudentEnrollments, type StudentEnrollment } from '@/actions/cancel-requests';
 import { uploadMedicalProof } from '@/actions/upload';
 
 type Student = { id: string; name: string; english_name?: string | null };
 type Course = { id: string; name: string };
+
+// slotKey 格式：多月份課程用 "${courseId}|${month}"，其他用 "${courseId}"
+function parseSlotKey(slotKey: string): { courseId: string; month: number | null } {
+  if (slotKey.includes('|')) {
+    const [courseId, m] = slotKey.split('|');
+    return { courseId, month: parseInt(m) };
+  }
+  return { courseId: slotKey, month: null };
+}
 
 const LEAVE_TYPES = ['病假', '事假', '喪假', '其他'];
 const DISEASE_TYPES = ['腸病毒', '流感', '水痘', '麻疹', '病毒性腸胃炎', '登革熱', '以上皆非'];
@@ -17,22 +25,11 @@ const TIME_OPTIONS = [
   '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
 ];
 
-function getMonthOptions(): { value: string; label: string }[] {
-  const options: { value: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 1; i <= 6; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
-    options.push({ value, label });
-  }
-  return options;
-}
-
 interface TeacherLeaveFormProps {
   teacherId: string;
   students: Student[];
   courses: Course[];
+  courseMonths: Record<string, number[]>;
   defaultTab?: 'leave' | 'course' | 'purchase' | 'departure';
 }
 
@@ -40,6 +37,7 @@ export default function TeacherLeaveForm({
   teacherId,
   students,
   courses,
+  courseMonths,
   defaultTab = 'leave',
 }: TeacherLeaveFormProps) {
   const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure'>(defaultTab);
@@ -76,8 +74,7 @@ export default function TeacherLeaveForm({
 
   // 課程異動專用（狀態分離）
   const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<string[]>([]); // 取消課程用
-  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);         // 加報課程用
-  const [addStartMonth, setAddStartMonth] = useState('');                           // e.g. '2026-07'
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);         // 加報課程用（slot key）
   const [submittedCount, setSubmittedCount] = useState(0);
   const [studentEnrollments, setStudentEnrollments] = useState<StudentEnrollment[]>([]);
   const [enrollmentLoading, startEnrollmentTransition] = useTransition();
@@ -121,7 +118,6 @@ export default function TeacherLeaveForm({
     setProofFile(null);
     setSelectedEnrollmentIds([]);
     setSelectedCourseIds([]);
-    setAddStartMonth('');
     setStudentEnrollments([]);
     setPurchaseQty(1);
     setDepartureDate('');
@@ -200,17 +196,13 @@ export default function TeacherLeaveForm({
           );
           setSubmittedCount(selectedEnrollmentIds.length);
         } else {
+          const year = new Date().getFullYear();
           await Promise.all(
-            selectedCourseIds.map(id =>
-              submitCancelRequest({
-                teacherId,
-                studentId,
-                courseId: id,
-                startDate: `${addStartMonth}-01`,
-                reason,
-                requestType: 'add',
-              })
-            )
+            selectedCourseIds.map(slotKey => {
+              const { courseId, month } = parseSlotKey(slotKey);
+              const startDate = month ? `${year}-${String(month).padStart(2, '0')}-01` : undefined;
+              return submitCancelRequest({ teacherId, studentId, courseId, startDate, reason, requestType: 'add' });
+            })
           );
           setSubmittedCount(selectedCourseIds.length);
         }
@@ -233,11 +225,30 @@ export default function TeacherLeaveForm({
   const selectCls = 'w-full h-12 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow';
   const inputCls = 'w-full h-12 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow';
 
-  // 加報時排除已有生效合約的課程
+  // 加報：以 slot key 展開月份，並排除已報名的 slot
+  const enrolledSlots = new Set(studentEnrollments.map((e) => {
+    const month = e.startDate ? parseInt(e.startDate.substring(5, 7)) : null;
+    return month ? `${e.courseId}|${month}` : e.courseId;
+  }));
   const enrolledCourseIds = new Set(studentEnrollments.map((e) => e.courseId));
-  const availableCourses = courseAction === 'add'
-    ? courses.filter((c) => !enrolledCourseIds.has(c.id))
-    : [];
+
+  const addSlots: { slotKey: string; label: string }[] = [];
+  if (courseAction === 'add') {
+    for (const c of courses) {
+      const months = courseMonths[c.id];
+      if (months && months.length > 1) {
+        for (const month of months) {
+          const slotKey = `${c.id}|${month}`;
+          if (!enrolledSlots.has(slotKey)) addSlots.push({ slotKey, label: `${c.name}（${month}月）` });
+        }
+      } else if (months && months.length === 1) {
+        const slotKey = `${c.id}|${months[0]}`;
+        if (!enrolledSlots.has(slotKey)) addSlots.push({ slotKey, label: `${c.name}（${months[0]}月）` });
+      } else {
+        if (!enrolledCourseIds.has(c.id)) addSlots.push({ slotKey: c.id, label: c.name });
+      }
+    }
+  }
 
   const successMessage = requestType === 'leave'
     ? '✓ 請假通報已送出，等待行政確認後生效。'
@@ -259,7 +270,7 @@ export default function TeacherLeaveForm({
       ? !!studentId && !!reason &&
         (courseAction === 'cancel'
           ? selectedEnrollmentIds.length > 0
-          : selectedCourseIds.length > 0 && !!addStartMonth)
+          : selectedCourseIds.length > 0)
       : requestType === 'purchase'
         ? !!studentId && !!purchaseQty
         : requestType === 'departure'
@@ -369,43 +380,26 @@ export default function TeacherLeaveForm({
               </div>
             )
           ) : (
-            availableCourses.length === 0 ? (
+            addSlots.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2">無可加報課程</p>
             ) : (
               <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
-                {availableCourses.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 cursor-pointer">
+                {addSlots.map(({ slotKey, label }) => (
+                  <label key={slotKey} className="flex items-center gap-2 cursor-pointer">
                     <Checkbox
-                      checked={selectedCourseIds.includes(c.id)}
+                      checked={selectedCourseIds.includes(slotKey)}
                       onCheckedChange={() =>
                         setSelectedCourseIds(prev =>
-                          prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]
+                          prev.includes(slotKey) ? prev.filter(x => x !== slotKey) : [...prev, slotKey]
                         )
                       }
                     />
-                    <span className="text-sm">{c.name}</span>
+                    <span className="text-sm">{label}</span>
                   </label>
                 ))}
               </div>
             )
           )}
-        </div>
-      )}
-
-      {/* 加報月份選擇器 */}
-      {requestType === 'course' && courseAction === 'add' && selectedCourseIds.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-sm font-medium">預計開始月份 <span className="text-destructive">*</span></p>
-          <Select value={addStartMonth} onValueChange={(v) => setAddStartMonth(v ?? '')}>
-            <SelectTrigger className={selectCls}>
-              <SelectValue placeholder="— 請選擇月份 —" />
-            </SelectTrigger>
-            <SelectContent>
-              {getMonthOptions().map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
       )}
 

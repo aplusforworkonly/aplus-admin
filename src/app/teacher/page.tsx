@@ -86,6 +86,25 @@ export default async function TeacherPage(props: {
   const students = (studentsList ?? []) as { id: string; name: string; english_name?: string | null }[];
   const courses = (coursesList ?? []) as { id: string; name: string }[];
 
+  // 推導每門課有哪些月份（從 enrollments.start_date），供加報清單展開月份選項
+  const courseIds = courses.map((c) => c.id);
+  const courseMonths: Record<string, number[]> = {};
+  if (courseIds.length > 0) {
+    const { data: monthRows } = await supabase
+      .from('enrollments')
+      .select('course_id, start_date')
+      .in('course_id', courseIds)
+      .not('start_date', 'is', null);
+    for (const row of monthRows ?? []) {
+      const dateStr = (row as any).start_date as string;
+      if (!dateStr) continue;
+      const month = parseInt(dateStr.substring(5, 7));
+      if (!courseMonths[(row as any).course_id]) courseMonths[(row as any).course_id] = [];
+      if (!courseMonths[(row as any).course_id].includes(month)) courseMonths[(row as any).course_id].push(month);
+    }
+    for (const cid of Object.keys(courseMonths)) courseMonths[cid].sort((a, b) => a - b);
+  }
+
   const cancelRequests = (cancelList ?? []).map((r: any) => {
     let typeStr = '取消課程';
     let detailStr = r.courses?.name ?? null;
@@ -184,7 +203,7 @@ export default async function TeacherPage(props: {
 
           {/* 非督導查看模式才顯示表單 */}
           {!isViewingOther && (
-            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} defaultTab={defaultTab} />
+            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} defaultTab={defaultTab} />
           )}
         </CardContent>
       </Card>
