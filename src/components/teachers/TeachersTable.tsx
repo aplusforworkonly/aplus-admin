@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, Fragment } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
@@ -261,8 +261,8 @@ export default function TeachersTable({
             </TableRow>
           )}
           {filtered.map((t) => (
-            <>
-              <TableRow key={t.id}>
+            <Fragment key={t.id}>
+              <TableRow>
                 <TableCell className="font-medium">
                   {t.name}
                   {t.english_name && (
@@ -298,13 +298,12 @@ export default function TeachersTable({
               </TableRow>
               {expandedSupervisorId === t.id && (
                 <SupervisorAccessRow
-                  key={`${t.id}-access`}
                   supervisorId={t.id}
                   allActiveTeachers={allActiveTeachers}
                   onClose={() => setExpandedSupervisorId(null)}
                 />
               )}
-            </>
+            </Fragment>
           ))}
         </TableBody>
       </Table>
