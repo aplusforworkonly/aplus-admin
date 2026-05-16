@@ -66,7 +66,7 @@ export default async function RequestsPage({
       .order('created_at'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, handled_at, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
+      .select('id, status, request_type, reason, created_at, handled_at, handled_by, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -84,6 +84,14 @@ export default async function RequestsPage({
       if (!auditByRequestId[log.request_id]) auditByRequestId[log.request_id] = [];
       auditByRequestId[log.request_id].push(log);
     }
+  }
+
+  // Fallback: look up teacher names for handled_by IDs not covered by audit log
+  const handledByIds = [...new Set((history ?? []).map((r: any) => r.handled_by).filter(Boolean))];
+  let handledByNames: Record<string, string> = {};
+  if (handledByIds.length > 0) {
+    const { data: teacherRows } = await supabase.from('teachers').select('id, name').in('id', handledByIds);
+    for (const t of teacherRows ?? []) handledByNames[t.id] = t.name;
   }
 
   const filteredPending = (pending ?? []).filter((r: any) =>
@@ -218,9 +226,9 @@ export default async function RequestsPage({
                       )}
                     </TableCell>
                     <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
-                    <TableCell className="text-sm">{(r as any)['teachers!teacher_id']?.name ?? '—'}</TableCell>
+                    <TableCell className="text-sm">{(r as any).teachers?.name ?? '—'}</TableCell>
                     <TableCell className="text-sm">
-                      {(auditByRequestId[r.id] ?? []).at(-1)?.teachers?.name ?? '—'}
+                      {(auditByRequestId[r.id] ?? []).at(-1)?.teachers?.name ?? handledByNames[r.handled_by] ?? '—'}
                     </TableCell>
                     <TableCell className="text-sm">
                       {r.handled_at ? new Date(r.handled_at).toLocaleDateString('zh-TW') : '—'}
