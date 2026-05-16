@@ -66,7 +66,7 @@ export default async function RequestsPage({
       .order('created_at'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, handled_at, students(name, english_name, campus), courses(name), teachers!teacher_id(name), teachers!handled_by(name)')
+      .select('id, status, request_type, reason, created_at, handled_at, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -162,7 +162,7 @@ export default async function RequestsPage({
                   </TableCell>
                   <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
                   <TableCell className="text-sm">{r.teachers?.name ?? '—'}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-48 truncate" title={r.reason}>
+                  <TableCell className="text-sm text-muted-foreground max-w-xs whitespace-pre-wrap break-words">
                     {(() => {
                       if (r.request_type === 'purchase' || r.request_type === 'departure') {
                         try {
@@ -220,7 +220,7 @@ export default async function RequestsPage({
                     <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
                     <TableCell className="text-sm">{(r as any)['teachers!teacher_id']?.name ?? '—'}</TableCell>
                     <TableCell className="text-sm">
-                      {(r as any)['teachers!handled_by']?.name ?? '—'}
+                      {(auditByRequestId[r.id] ?? []).at(-1)?.teachers?.name ?? '—'}
                     </TableCell>
                     <TableCell className="text-sm">
                       {r.handled_at ? new Date(r.handled_at).toLocaleDateString('zh-TW') : '—'}
