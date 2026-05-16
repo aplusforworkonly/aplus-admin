@@ -1,6 +1,8 @@
 'use client';
 import { useState, useTransition, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { submitLeaveRequest } from '@/actions/leave-requests';
 import { submitCancelRequest, getStudentEnrollments, type StudentEnrollment } from '@/actions/cancel-requests';
 import { uploadMedicalProof } from '@/actions/upload';
@@ -11,9 +13,21 @@ type Course = { id: string; name: string };
 const LEAVE_TYPES = ['病假', '事假', '喪假', '其他'];
 const DISEASE_TYPES = ['腸病毒', '流感', '水痘', '麻疹', '病毒性腸胃炎', '登革熱', '以上皆非'];
 const TIME_OPTIONS = [
-  '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', 
+  '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00',
   '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
 ];
+
+function getMonthOptions(): { value: string; label: string }[] {
+  const options: { value: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
+    options.push({ value, label });
+  }
+  return options;
+}
 
 interface TeacherLeaveFormProps {
   teacherId: string;
@@ -29,7 +43,7 @@ export default function TeacherLeaveForm({
   defaultTab = 'leave',
 }: TeacherLeaveFormProps) {
   const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure'>(defaultTab);
-  
+
   useEffect(() => {
     setRequestType(defaultTab);
   }, [defaultTab]);
@@ -60,8 +74,11 @@ export default function TeacherLeaveForm({
   const [diseaseType, setDiseaseType] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
 
-  // 課程異動專用
-  const [courseId, setCourseId] = useState('');
+  // 課程異動專用（狀態分離）
+  const [selectedEnrollmentIds, setSelectedEnrollmentIds] = useState<string[]>([]); // 取消課程用
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);         // 加報課程用
+  const [addStartMonth, setAddStartMonth] = useState('');                           // e.g. '2026-07'
+  const [submittedCount, setSubmittedCount] = useState(0);
   const [studentEnrollments, setStudentEnrollments] = useState<StudentEnrollment[]>([]);
   const [enrollmentLoading, startEnrollmentTransition] = useTransition();
 
@@ -78,7 +95,8 @@ export default function TeacherLeaveForm({
 
   function handleStudentChange(val: string) {
     setStudentId(val);
-    setCourseId('');
+    setSelectedEnrollmentIds([]);
+    setSelectedCourseIds([]);
     setStudentEnrollments([]);
     if (val && requestType === 'course') {
       startEnrollmentTransition(async () => {
@@ -101,7 +119,9 @@ export default function TeacherLeaveForm({
     setNote('');
     setDiseaseType('');
     setProofFile(null);
-    setCourseId('');
+    setSelectedEnrollmentIds([]);
+    setSelectedCourseIds([]);
+    setAddStartMonth('');
     setStudentEnrollments([]);
     setPurchaseQty(1);
     setDepartureDate('');
@@ -120,8 +140,8 @@ export default function TeacherLeaveForm({
     setCourseAction(action);
     setSuccess(false);
     setError('');
-    setCourseId('');
-    // 如果學生已選，重新載入對應清單
+    setSelectedEnrollmentIds([]);
+    setSelectedCourseIds([]);
     if (studentId) {
       startEnrollmentTransition(async () => {
         const result = await getStudentEnrollments(studentId);
@@ -164,8 +184,35 @@ export default function TeacherLeaveForm({
         } else if (requestType === 'departure') {
           const payload = JSON.stringify({ date: departureDate, reason });
           await submitCancelRequest({ teacherId, studentId, courseId: null, reason: payload, requestType: 'departure' });
+        } else if (courseAction === 'cancel') {
+          await Promise.all(
+            selectedEnrollmentIds.map(enrollId => {
+              const enroll = studentEnrollments.find(e => e.enrollmentId === enrollId);
+              return submitCancelRequest({
+                teacherId,
+                studentId,
+                courseId: enroll?.courseId ?? null,
+                enrollmentId: enrollId,
+                reason,
+                requestType: 'cancel',
+              });
+            })
+          );
+          setSubmittedCount(selectedEnrollmentIds.length);
         } else {
-          await submitCancelRequest({ teacherId, studentId, courseId, reason, requestType: courseAction });
+          await Promise.all(
+            selectedCourseIds.map(id =>
+              submitCancelRequest({
+                teacherId,
+                studentId,
+                courseId: id,
+                startDate: `${addStartMonth}-01`,
+                reason,
+                requestType: 'add',
+              })
+            )
+          );
+          setSubmittedCount(selectedCourseIds.length);
         }
         setSuccess(true);
         resetForm();
@@ -199,8 +246,8 @@ export default function TeacherLeaveForm({
       : requestType === 'departure'
         ? '✓ 學生離校通知已送出，等待行政審核與結算。'
         : courseAction === 'cancel'
-          ? '✓ 取消課程申請已送出，行政確認後將自動更新合約狀態。'
-          : '✓ 加報課程申請已送出，行政確認後將建立候補合約。';
+          ? `✓ 取消課程申請已送出（共 ${submittedCount} 筆），行政確認後將自動更新合約狀態。`
+          : `✓ 加報課程申請已送出（共 ${submittedCount} 筆），行政確認後將建立候補合約。`;
 
   const needsProof = requestType === 'leave' && (
     (leaveType === '病假' && !!diseaseType && diseaseType !== '以上皆非') ||
@@ -209,7 +256,10 @@ export default function TeacherLeaveForm({
   const isSubmittable = requestType === 'leave'
     ? !!studentId && !!reason && !!leaveDate && (!needsProof || !!proofFile)
     : requestType === 'course'
-      ? !!studentId && !!courseId && !!reason
+      ? !!studentId && !!reason &&
+        (courseAction === 'cancel'
+          ? selectedEnrollmentIds.length > 0
+          : selectedCourseIds.length > 0 && !!addStartMonth)
       : requestType === 'purchase'
         ? !!studentId && !!purchaseQty
         : requestType === 'departure'
@@ -218,7 +268,7 @@ export default function TeacherLeaveForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* 主 Tab - 只有在 leave 或 course 時顯示切換 */}
+      {/* 主 Tab */}
       {(requestType === 'leave' || requestType === 'course') && (
         <div className="flex w-full mb-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
           <button
@@ -283,42 +333,79 @@ export default function TeacherLeaveForm({
       {requestType === 'course' && (
         <div className="space-y-1">
           <p className="text-sm font-medium">
-            {courseAction === 'cancel' ? '取消哪個課程合約' : '加報哪個課程'}
+            {courseAction === 'cancel' ? '取消哪些課程合約' : '加報哪些課程'}
             <span className="text-destructive"> *</span>
+            <span className="ml-2 text-xs font-normal text-muted-foreground">（可多選）</span>
           </p>
           {enrollmentLoading ? (
             <p className="text-sm text-muted-foreground py-2">載入中...</p>
+          ) : !studentId ? (
+            <p className="text-sm text-muted-foreground py-2">請先選擇學生</p>
           ) : courseAction === 'cancel' ? (
-            <select
-              className={selectCls}
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              disabled={!studentId}
-              required
-            >
-              <option value="">
-                {!studentId ? '請先選擇學生' : studentEnrollments.length === 0 ? '該學生目前無生效合約' : '— 請選擇要取消的課程 —'}
-              </option>
-              {studentEnrollments.map((e) => (
-                <option key={e.courseId} value={e.courseId}>{e.courseName}</option>
-              ))}
-            </select>
+            studentEnrollments.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">該學生目前無生效合約</p>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
+                {studentEnrollments.map((e) => {
+                  const monthLabel = e.startDate
+                    ? `（${parseInt(e.startDate.substring(5, 7))}月）`
+                    : '';
+                  return (
+                    <label key={e.enrollmentId} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={selectedEnrollmentIds.includes(e.enrollmentId)}
+                        onCheckedChange={() =>
+                          setSelectedEnrollmentIds(prev =>
+                            prev.includes(e.enrollmentId)
+                              ? prev.filter(x => x !== e.enrollmentId)
+                              : [...prev, e.enrollmentId]
+                          )
+                        }
+                      />
+                      <span className="text-sm">{e.courseName}{monthLabel}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <select
-              className={selectCls}
-              value={courseId}
-              onChange={(e) => setCourseId(e.target.value)}
-              disabled={!studentId}
-              required
-            >
-              <option value="">
-                {!studentId ? '請先選擇學生' : availableCourses.length === 0 ? '無可加報課程' : '— 請選擇要加報的課程 —'}
-              </option>
-              {availableCourses.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            availableCourses.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">無可加報課程</p>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
+                {availableCourses.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={selectedCourseIds.includes(c.id)}
+                      onCheckedChange={() =>
+                        setSelectedCourseIds(prev =>
+                          prev.includes(c.id) ? prev.filter(x => x !== c.id) : [...prev, c.id]
+                        )
+                      }
+                    />
+                    <span className="text-sm">{c.name}</span>
+                  </label>
+                ))}
+              </div>
+            )
           )}
+        </div>
+      )}
+
+      {/* 加報月份選擇器 */}
+      {requestType === 'course' && courseAction === 'add' && selectedCourseIds.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-sm font-medium">預計開始月份 <span className="text-destructive">*</span></p>
+          <Select value={addStartMonth} onValueChange={(v) => setAddStartMonth(v ?? '')}>
+            <SelectTrigger className={selectCls}>
+              <SelectValue placeholder="— 請選擇月份 —" />
+            </SelectTrigger>
+            <SelectContent>
+              {getMonthOptions().map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -329,16 +416,16 @@ export default function TeacherLeaveForm({
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">請假日期與時間</p>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  checked={isAllDay} 
+                <input
+                  type="checkbox"
+                  checked={isAllDay}
                   onChange={(e) => setIsAllDay(e.target.checked)}
                   className="rounded border-slate-300 text-teal-600 focus:ring-teal-600"
                 />
                 全日
               </label>
             </div>
-            
+
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <input
@@ -358,11 +445,11 @@ export default function TeacherLeaveForm({
                   </select>
                 )}
               </div>
-              
+
               <div className="flex justify-center text-sm text-muted-foreground">
                 <span className="bg-muted px-3 py-1 rounded-md">至</span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <input
                   type="date"
@@ -464,13 +551,13 @@ export default function TeacherLeaveForm({
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">數量 <span className="text-destructive">*</span></p>
-            <input 
-              type="number" 
-              min={1} 
-              className={inputCls} 
-              value={purchaseQty} 
-              onChange={(e) => setPurchaseQty(e.target.value === '' ? '' : parseInt(e.target.value))} 
-              required 
+            <input
+              type="number"
+              min={1}
+              className={inputCls}
+              value={purchaseQty}
+              onChange={(e) => setPurchaseQty(e.target.value === '' ? '' : parseInt(e.target.value))}
+              required
             />
           </div>
         </>
