@@ -9,3 +9,13 @@ export async function updateEnrollmentStatus(id: string, status: EnrollmentStatu
   if (error) throw new Error(error.message);
   revalidatePath('/enrollments');
 }
+
+export async function approveAllPending() {
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from('enrollments')
+    .update({ status: '生效' })
+    .eq('status', '待審核');
+  if (error) throw new Error(error.message);
+  revalidatePath('/enrollments');
+}
