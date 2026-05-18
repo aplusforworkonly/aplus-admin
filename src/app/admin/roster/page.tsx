@@ -34,20 +34,17 @@ export default async function AdminRosterPage() {
   // 分頁撈完所有生效合約（Supabase 每次最多回傳 1000 筆）
   // 必須加 .order('id') 才能保證分頁一致，否則無 ORDER BY 時跨頁資料會漏掉
   const enrollments: any[] = [];
-  if (studentIds.length > 0) {
-    const PAGE = 1000;
-    for (let offset = 0; ; offset += PAGE) {
-      const { data } = await supabase
-        .from('enrollments')
-        .select('student_id, start_date, courses(name, course_type)')
-        .eq('status', '生效')
-        .in('student_id', studentIds)
-        .order('id')
-        .range(offset, offset + PAGE - 1);
-      if (!data || data.length === 0) break;
-      enrollments.push(...data);
-      if (data.length < PAGE) break;
-    }
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data } = await supabase
+      .from('enrollments')
+      .select('student_id, start_date, courses(name, course_type)')
+      .eq('status', '生效')
+      .order('id')
+      .range(offset, offset + PAGE - 1);
+    if (!data || data.length === 0) break;
+    enrollments.push(...data);
+    if (data.length < PAGE) break;
   }
 
   const { data: classData } = studentIds.length > 0
