@@ -115,19 +115,29 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
     }
   } else if (req.request_type === 'add') {
     if (req.course_id) {
-      const { data: student } = await supabase
-        .from('students')
-        .select('campus')
-        .eq('id', req.student_id)
-        .single();
+      const [{ data: student }, { data: course }] = await Promise.all([
+        supabase.from('students').select('campus').eq('id', req.student_id).single(),
+        supabase.from('courses').select('max_capacity').eq('id', req.course_id).single(),
+      ]);
 
-      const enrollStart = (req as any).start_date ?? new Date().toISOString().split('T')[0];
+      let newStatus: '生效' | '候補' = '生效';
+      if (course?.max_capacity != null) {
+        const { count } = await supabase
+          .from('enrollments')
+          .select('*', { count: 'exact', head: true })
+          .eq('course_id', req.course_id)
+          .eq('status', '生效');
+        if ((count ?? 0) >= course.max_capacity) newStatus = '候補';
+      }
+
+      const enrollStart = (req as any).start_date
+        ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
       await supabase.from('enrollments').insert({
         student_id: req.student_id,
         course_id: req.course_id,
         campus: student?.campus ?? '文府總校',
         start_date: enrollStart,
-        status: '候補',
+        status: newStatus,
         contract_no: `REQ-${Date.now()}`,
       });
     }

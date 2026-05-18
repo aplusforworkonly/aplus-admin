@@ -21,6 +21,11 @@ function OtpLoginForm({ showChromeButton }: { showChromeButton: boolean }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const saved = localStorage.getItem('otp_email');
+    if (saved) setEmail(saved);
+  }, []);
+
   function openInChrome() {
     const url = window.location.href;
     window.location.href = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
@@ -38,6 +43,7 @@ function OtpLoginForm({ showChromeButton }: { showChromeButton: boolean }) {
     if (err) {
       setError('找不到此 Email，請確認是否為系統登記的帳號。');
     } else {
+      localStorage.setItem('otp_email', email.trim().toLowerCase());
       setStep('otp');
     }
     setLoading(false);
