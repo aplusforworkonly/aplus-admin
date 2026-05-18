@@ -92,16 +92,16 @@ function OtpLoginForm({ showChromeButton }: { showChromeButton: boolean }) {
             <input
               type="text"
               inputMode="numeric"
-              placeholder="6 位數驗證碼"
+              placeholder="驗證碼"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && verifyOtp()}
               className="w-full border border-input rounded-md px-3 py-2 text-sm text-center tracking-widest focus:outline-none focus:ring-1 focus:ring-ring"
-              maxLength={6}
+              maxLength={8}
               autoFocus
             />
             {error && <p className="text-xs text-destructive">{error}</p>}
-            <Button className="w-full" onClick={verifyOtp} disabled={loading || otp.trim().length < 6}>
+            <Button className="w-full" onClick={verifyOtp} disabled={loading || otp.trim().length < 6 || otp.trim().length > 8}>
               {loading ? '驗證中…' : '登入'}
             </Button>
             <button
