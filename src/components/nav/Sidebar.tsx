@@ -3,19 +3,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
-type LinkDef = { href: string; label: string; countKey?: 'leaves' | 'requests' | 'enrollments' | 'studentReviews'; exact?: boolean };
+type LinkDef = { href: string; label: string; countKey?: 'leaves' | 'requests' | 'studentReviews'; exact?: boolean };
 
 const links: LinkDef[] = [
   { href: '/students', label: '學生管理', exact: true },
   { href: '/admin/roster', label: '學生報名總覽' },
   { href: '/parents', label: '家長管理' },
-  { href: '/enrollments', label: '報名合約', countKey: 'enrollments' },
+  { href: '/enrollments', label: '報名合約' },
   { href: '/courses', label: '課程管理', exact: true },
   { href: '/courses/stats', label: '報名統計' },
   { href: '/invoices', label: '帳單管理' },
   { href: '/teachers', label: '老師管理' },
-  { href: '/admin/classes', label: '分班管理', exact: true },
-  { href: '/admin/classes/matrix', label: '分班矩陣' },
+  { href: '/admin/classes/matrix', label: '分班管理' },
+  { href: '/admin/rostering-permissions', label: '分班權限設定' },
   { href: '/leaves', label: '請假管理', countKey: 'leaves' },
   { href: '/admin/requests', label: '異動審核', countKey: 'requests' },
   { href: '/admin/student-reviews', label: '學生資料審核', countKey: 'studentReviews' },
@@ -24,16 +24,14 @@ const links: LinkDef[] = [
 export default function Sidebar({
   leavesCount = 0,
   requestsCount = 0,
-  enrollmentsCount = 0,
   studentReviewsCount = 0,
 }: {
   leavesCount?: number;
   requestsCount?: number;
-  enrollmentsCount?: number;
   studentReviewsCount?: number;
 }) {
   const pathname = usePathname();
-  const counts = { leaves: leavesCount, requests: requestsCount, enrollments: enrollmentsCount, studentReviews: studentReviewsCount };
+  const counts = { leaves: leavesCount, requests: requestsCount, studentReviews: studentReviewsCount };
 
   return (
     <aside className="w-48 border-r min-h-screen p-4 space-y-1 shrink-0">

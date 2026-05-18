@@ -1,10 +1,10 @@
 'use client';
-import { CalendarRange, BookOpenText, Users, ShoppingBag, LogOut } from 'lucide-react';
+import { CalendarRange, BookOpenText, Users, ShoppingBag, LogOut, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export default function TeacherBottomNav() {
+export default function TeacherBottomNav({ rosteringTabs = [] }: { rosteringTabs?: string[] }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'leave');
@@ -66,6 +66,13 @@ export default function TeacherBottomNav() {
       icon: Users,
       isActive: pathname === '/teacher/students',
     },
+    ...(rosteringTabs.length > 0 ? [{
+      id: 'rostering',
+      label: '分班管理',
+      href: `/teacher/rostering?tab=${rosteringTabs[0]}`,
+      icon: ClipboardList,
+      isActive: pathname === '/teacher/rostering',
+    }] : []),
   ];
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: typeof navItems[0]) => {

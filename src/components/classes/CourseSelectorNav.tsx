@@ -1,22 +1,35 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
+export type CourseNavEntry = {
+  label: string;
+  value: string; // comma-joined courseIds
+};
+
 export default function CourseSelectorNav({
-  courses,
-  currentCourseId,
+  entries,
+  currentValue,
+  tab = 'camp',
+  basePath = '/admin/classes/matrix',
 }: {
-  courses: { id: string; name: string }[];
-  currentCourseId: string;
+  entries: CourseNavEntry[];
+  currentValue: string;
+  tab?: string;
+  basePath?: string;
 }) {
   const router = useRouter();
   return (
     <select
       className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-      value={currentCourseId}
-      onChange={(e) => router.push(`/admin/classes/matrix?courseId=${e.target.value}`)}
+      value={currentValue}
+      onChange={(e) =>
+        router.push(
+          `${basePath}?tab=${tab}&courseIds=${encodeURIComponent(e.target.value)}`
+        )
+      }
     >
-      {courses.map((c) => (
-        <option key={c.id} value={c.id}>{c.name}</option>
+      {entries.map((entry) => (
+        <option key={entry.value} value={entry.value}>{entry.label}</option>
       ))}
     </select>
   );

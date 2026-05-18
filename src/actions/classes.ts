@@ -16,6 +16,18 @@ export async function createClass(data: {
   const { error } = await supabase.from('classes').insert(data);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/classes');
+  revalidatePath('/admin/classes/matrix');
+}
+
+export async function updateClassInfo(
+  classId: string,
+  data: { name?: string; teacher_id?: string | null }
+) {
+  const supabase = createServerClient();
+  const { error } = await supabase.from('classes').update(data).eq('id', classId);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/classes/matrix');
+  revalidatePath('/admin/classes');
 }
 
 export async function toggleClassStatus(id: string, status: 'active' | 'archived') {
@@ -67,6 +79,7 @@ export async function deleteClass(id: string) {
   const { error } = await supabase.from('classes').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/classes');
+  revalidatePath('/admin/classes/matrix');
 }
 
 export async function updateClassStudents(classId: string, studentIds: string[]) {
@@ -81,15 +94,16 @@ export async function updateClassStudents(classId: string, studentIds: string[])
 }
 
 export async function saveRosterAssignments(
-  courseId: string,
+  courseIds: string | string[],
   assignments: { studentId: string; classId: string | null }[]
 ) {
   const supabase = createServerClient();
+  const ids = Array.isArray(courseIds) ? courseIds : [courseIds];
 
   const { data: classes } = await supabase
     .from('classes')
     .select('id')
-    .eq('course_id', courseId)
+    .in('course_id', ids)
     .eq('status', 'active');
 
   const classIds = (classes ?? []).map((c) => c.id);
