@@ -15,7 +15,7 @@ export default async function StudentReviewsPage() {
   const [{ data: reviews }, { data: resolvedReviews }, { data: allStudents }] = await Promise.all([
     supabase
       .from('student_review_requests')
-      .select('id, proposed_changes, created_at, students(id, name)')
+      .select('id, review_type, proposed_changes, created_at, students(id, name)')
       .eq('status', 'pending')
       .order('created_at', { ascending: true }),
     supabase
@@ -32,6 +32,9 @@ export default async function StudentReviewsPage() {
 
   const pending = reviews ?? [];
   const resolved = resolvedReviews ?? [];
+
+  const fieldChangePending = pending.filter((r: any) => r.review_type !== 'name_mismatch');
+  const nameMismatchPending = pending.filter((r: any) => r.review_type === 'name_mismatch');
 
   // Fetch audit logs for resolved reviews
   const resolvedIds = resolved.map((r) => r.id);
@@ -119,12 +122,67 @@ export default async function StudentReviewsPage() {
         <DuplicateStudentAlert groups={duplicateGroups} />
       )}
 
+      {/* 姓名填寫錯誤核對 */}
+      {nameMismatchPending.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-base font-semibold">姓名填寫錯誤核對</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              表單填寫的姓名與系統記錄不符，經電話及英文名比對後找到對應學生，請確認是否為同一人。
+            </p>
+          </div>
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left px-4 py-2 font-medium">系統學生</th>
+                  <th className="text-left px-4 py-2 font-medium">表單填寫名稱</th>
+                  <th className="text-left px-4 py-2 font-medium">比對依據</th>
+                  <th className="text-left px-4 py-2 font-medium">時間</th>
+                  <th className="w-36"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {nameMismatchPending.map((r: any) => {
+                  const student = r.students as { id: string; name: string } | null;
+                  const changes = r.proposed_changes as Record<string, { old: unknown; new: unknown }>;
+                  return (
+                    <tr key={r.id} className="border-t hover:bg-muted/30">
+                      <td className="px-4 py-2 font-medium">{student?.name ?? '—'}</td>
+                      <td className="px-4 py-2 text-amber-600 font-medium">
+                        {String(changes.survey_name?.old ?? '—')}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground text-xs">
+                        {String(changes.match_basis?.new ?? '—')}
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground text-xs">
+                        {new Date(r.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex gap-2">
+                          <form action={approveStudentReview.bind(null, r.id)}>
+                            <Button size="sm" variant="default" type="submit">確認</Button>
+                          </form>
+                          <form action={rejectStudentReview.bind(null, r.id)}>
+                            <Button size="sm" variant="outline" type="submit">存疑</Button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* 待審核資料變更 */}
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           以下學生在重新填寫報名表時，資料與原有記錄不符，請確認後核准或拒絕變更。
         </p>
-        {pending.length === 0 ? (
+        {fieldChangePending.length === 0 ? (
           <div className="bg-background rounded-xl border shadow-sm p-8 text-center text-sm text-muted-foreground">
             目前沒有待審核的資料變更。
           </div>
@@ -142,7 +200,7 @@ export default async function StudentReviewsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pending.map((r) => {
+                {fieldChangePending.map((r: any) => {
                   const student = r.students as unknown as { id: string; name: string } | null;
                   const changes = r.proposed_changes as Record<string, { old: unknown; new: unknown }>;
                   const fields = Object.entries(changes);

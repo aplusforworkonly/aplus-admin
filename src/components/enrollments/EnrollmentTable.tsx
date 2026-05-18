@@ -9,7 +9,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { updateEnrollmentStatus } from '@/actions/enrollments';
+import { updateEnrollmentStatus, approveAllPending } from '@/actions/enrollments';
 import type { EnrollmentStatus, CampusType } from '@/lib/supabase/types';
 
 type EnrollmentRow = {
@@ -27,21 +27,21 @@ type EnrollmentRow = {
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   生效: 'default',
   候補: 'outline',
-  待審核: 'secondary',
   退班: 'destructive',
   已結業: 'secondary',
+  待審核: 'secondary',
 };
 
 const NEXT_STATUS: Partial<Record<EnrollmentStatus, EnrollmentStatus>> = {
+  待審核: '生效',
   候補: '生效',
   生效: '退班',
-  待審核: '生效',
 };
 
 const NEXT_LABEL: Partial<Record<EnrollmentStatus, string>> = {
+  待審核: '轉生效',
   候補: '轉生效',
   生效: '退班',
-  待審核: '核准',
 };
 
 function FilterBtn({
@@ -78,6 +78,12 @@ export default function EnrollmentTable({
   const [classFilter, setClassFilter] = useState<string>('all');
   const [pending, startTransition] = useTransition();
 
+  const pendingCount = enrollments.filter((e) => e.status === '待審核').length;
+
+  function handleApproveAll() {
+    startTransition(() => approveAllPending());
+  }
+
   const filtered = enrollments.filter((e) => {
     const matchSearch =
       !search ||
@@ -112,6 +118,17 @@ export default function EnrollmentTable({
             </FilterBtn>
           ))}
         </div>
+        {pendingCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={handleApproveAll}
+            className="text-teal-700 border-teal-300 hover:bg-teal-50"
+          >
+            {pending ? '處理中…' : `全部轉生效（${pendingCount} 筆）`}
+          </Button>
+        )}
         <div className="flex gap-1">
           {(['all', '文府總校', '龍華校', '左新校'] as const).map((c) => (
             <FilterBtn key={c} active={campusFilter === c} onClick={() => setCampusFilter(c)}>
@@ -137,7 +154,7 @@ export default function EnrollmentTable({
       <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-36">合約編號</TableHead>
+            <TableHead className="w-44">合約編號</TableHead>
             <TableHead>學生</TableHead>
             <TableHead>課程</TableHead>
             <TableHead className="w-24">校區</TableHead>
@@ -158,7 +175,9 @@ export default function EnrollmentTable({
             const next = NEXT_STATUS[e.status];
             return (
               <TableRow key={e.id}>
-                <TableCell className="font-mono text-xs">{e.contract_no}</TableCell>
+                <TableCell className="font-mono text-xs max-w-[11rem]">
+                  <span className="block truncate" title={e.contract_no}>{e.contract_no}</span>
+                </TableCell>
                 <TableCell className="font-medium text-sm">
                   <p>{e.students?.name ?? '—'}</p>
                   {e.students?.english_name && (
@@ -181,16 +200,6 @@ export default function EnrollmentTable({
                         onClick={() => handleStatusChange(e.id, next)}
                       >
                         {NEXT_LABEL[e.status]}
-                      </Button>
-                    )}
-                    {e.status === '待審核' && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        disabled={pending}
-                        onClick={() => handleStatusChange(e.id, '退班')}
-                      >
-                        拒絕
                       </Button>
                     )}
                   </div>

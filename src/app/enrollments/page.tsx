@@ -13,7 +13,7 @@ export default async function EnrollmentsPage() {
   ] = await Promise.all([
     supabase
       .from('enrollments')
-      .select('id, contract_no, campus, start_date, end_date, status, student_id, students(name, english_name), courses(name)')
+      .select('id, contract_no, campus, start_date, end_date, status, student_id, students(name, english_name), courses(name, course_type)')
       .order('created_at', { ascending: false }),
     supabase
       .from('classes')
@@ -45,7 +45,7 @@ export default async function EnrollmentsPage() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">報名合約</h1>
       <EnrollmentTable
-        enrollments={(enrollments ?? []) as any}
+        enrollments={(enrollments ?? []).filter((e: any) => e.courses?.course_type !== 'afternoon_basic') as any}
         classes={classOptions}
         classStudentIds={classStudentIds}
       />

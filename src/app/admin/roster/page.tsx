@@ -77,7 +77,7 @@ export default async function AdminRosterPage() {
   const augustRaw: Record<string, { name: string; order: number }[]> = {};
   for (const e of enrollments ?? []) {
     const c = (e as any).courses;
-    if (!c || c.course_type === 'material') continue;
+    if (!c || c.course_type === 'material' || c.course_type === 'afternoon_basic') continue;
     const month = ((e as any).start_date ?? '').slice(5, 7);
     const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     const sid = (e as any).student_id;
