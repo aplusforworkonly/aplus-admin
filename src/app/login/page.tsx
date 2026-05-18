@@ -33,7 +33,7 @@ function OtpLoginForm({ showChromeButton }: { showChromeButton: boolean }) {
     const supabase = createClient();
     const { error: err } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: true },
     });
     if (err) {
       setError('找不到此 Email，請確認是否為系統登記的帳號。');
