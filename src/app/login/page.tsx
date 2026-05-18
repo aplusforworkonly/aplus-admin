@@ -2,10 +2,67 @@
 import { createClient } from '@/lib/supabase/browser';
 import { Button } from '@/components/ui/button';
 import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+
+function detectInAppBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /Line\//i.test(ua) || /FBAN|FBAV/i.test(ua) || /Instagram/i.test(ua) || /MicroMessenger/i.test(ua);
+}
+
+function InAppBrowserWarning() {
+  const [url, setUrl] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setUrl(window.location.href);
+  }, []);
+
+  async function copyUrl() {
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
+      <div className="bg-background rounded-xl border shadow-sm p-8 w-full max-w-sm space-y-5 text-center">
+        <div className="text-4xl">⚠️</div>
+        <div>
+          <h1 className="text-xl font-bold">請用瀏覽器開啟</h1>
+          <p className="text-sm text-muted-foreground mt-2">
+            目前是在 LINE 或 App 內開啟，Google 登入在此環境下會被封鎖。
+          </p>
+        </div>
+        <div className="bg-muted rounded-lg p-4 text-left space-y-2 text-sm">
+          <p className="font-medium">LINE 使用者操作步驟：</p>
+          <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+            <li>點右上角的「⋯」選單</li>
+            <li>選「用預設瀏覽器開啟」</li>
+            <li>再重新點「以 Google 帳號登入」</li>
+          </ol>
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">或複製網址，貼到 Chrome / Safari 開啟</p>
+          <Button variant="outline" className="w-full text-sm" onClick={copyUrl}>
+            {copied ? '已複製 ✓' : '複製網址'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LoginForm() {
   const searchParams = useSearchParams();
+  const [isInApp, setIsInApp] = useState(false);
+
+  useEffect(() => {
+    setIsInApp(detectInAppBrowser());
+  }, []);
+
+  if (isInApp) return <InAppBrowserWarning />;
+
   const error = searchParams.get('error');
   const debugEmail = searchParams.get('debug');
   const errorMessage =
