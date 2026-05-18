@@ -3,11 +3,12 @@ import { getGrade } from '@/lib/grade';
 import RosteringMatrix, { type StudentRow, type ClassOption } from '@/components/classes/RosteringMatrix';
 import CourseSelectorNav, { type CourseNavEntry } from '@/components/classes/CourseSelectorNav';
 import InlineAddClassPanel from '@/components/classes/InlineAddClassPanel';
+import GenerateAfternoonBasicButton from '@/components/classes/GenerateAfternoonBasicButton';
 import Link from 'next/link';
 
 // ── 分頁設定 ──────────────────────────────────────────────────────
 const TABS = [
-  { key: 'camp',    label: '冬夏令營 & 戶外教學', courseTypes: ['camp', 'trip'] },
+  { key: 'camp',    label: '冬夏令營 & 戶外教學', courseTypes: ['camp', 'trip', 'afternoon_basic'] },
   { key: 'english', label: '英語分班',             courseTypes: ['main_course'] },
 ] as const;
 
@@ -17,6 +18,7 @@ const COURSE_TYPE_TO_CATEGORY: Record<string, string> = {
   main_course: 'homeroom',
   camp: 'camp',
   trip: 'camp',
+  afternoon_basic: 'camp',
 };
 
 // ── 課程分組邏輯（依「日期｜活動」合併） ─────────────────────────
@@ -27,6 +29,18 @@ type CourseGroup = {
   totalCount: number;
   courseType: string;
 };
+
+const TYPE_SORT_PRIORITY: Record<string, number> = { camp: 0, afternoon_basic: 1, trip: 2 };
+
+function parseDateSortKey(label: string): number {
+  const prefix = label.split(/[｜|]/)[0].trim();
+  const base = prefix.split('–')[0].trim();
+  const parts = base.split('/').map((s) => parseInt(s, 10));
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    return parts[0] * 100 + parts[1];
+  }
+  return 9999;
+}
 
 function buildCourseGroups(
   courses: { id: string; name: string; course_type: string }[],
@@ -52,13 +66,23 @@ function buildCourseGroups(
     }
   }
 
-  return [...map.values()].map((g) => ({
-    value: g.courseIds.join(','),
-    label: g.label,
-    courseIds: g.courseIds,
-    totalCount: g.courseIds.reduce((sum, id) => sum + (enrollmentCounts[id] ?? 0), 0),
-    courseType: g.courseType,
-  }));
+  return [...map.values()]
+    .map((g) => ({
+      value: g.courseIds.join(','),
+      label: g.label,
+      courseIds: g.courseIds,
+      totalCount: g.courseIds.reduce((sum, id) => sum + (enrollmentCounts[id] ?? 0), 0),
+      courseType: g.courseType,
+    }))
+    .sort((a, b) => {
+      const typeA = TYPE_SORT_PRIORITY[a.courseType] ?? 5;
+      const typeB = TYPE_SORT_PRIORITY[b.courseType] ?? 5;
+      if (typeA !== typeB) return typeA - typeB;
+      const dateA = parseDateSortKey(a.label);
+      const dateB = parseDateSortKey(b.label);
+      if (dateA !== dateB) return dateA - dateB;
+      return a.label.localeCompare(b.label, 'zh');
+    });
 }
 
 // ── Tab 導航（Server Component，Link-based） ──────────────────────
@@ -128,19 +152,18 @@ export default async function RosteringMatrixPage({
 
   const supabase = createServerClient();
 
-  const [{ data: coursesData }, { data: allEnrollments }] = await Promise.all([
-    supabase
-      .from('courses')
-      .select('id, name, course_type')
-      .in('course_type', currentTabConfig.courseTypes as unknown as string[])
-      .order('name'),
-    supabase
-      .from('enrollments')
-      .select('course_id')
-      .eq('status', '生效'),
-  ]);
+  const { data: coursesData } = await supabase
+    .from('courses')
+    .select('id, name, course_type')
+    .in('course_type', currentTabConfig.courseTypes as unknown as string[])
+    .order('name');
 
   const courses = (coursesData ?? []) as { id: string; name: string; course_type: string }[];
+  const tabCourseIds = courses.map((c) => c.id);
+
+  const { data: allEnrollments } = tabCourseIds.length > 0
+    ? await supabase.from('enrollments').select('course_id').eq('status', '生效').in('course_id', tabCourseIds)
+    : { data: [] };
 
   const enrollmentCounts: Record<string, number> = {};
   for (const e of allEnrollments ?? []) {
@@ -159,7 +182,10 @@ export default async function RosteringMatrixPage({
   if (courseIdList.length === 0) {
     return (
       <div className="p-6 space-y-4 max-w-2xl">
-        <h1 className="text-2xl font-bold">分班管理</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">分班管理</h1>
+          {currentTab === 'camp' && <GenerateAfternoonBasicButton />}
+        </div>
         <TabNav currentTab={currentTab} />
         <CourseSelectPrompt groups={groups} tab={currentTab} />
       </div>

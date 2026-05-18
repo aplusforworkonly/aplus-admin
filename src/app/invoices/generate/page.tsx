@@ -1,19 +1,33 @@
 import { createServerClient } from '@/lib/supabase/server';
 import { TuitionCalculator } from '@/lib/finance/tuition-calculator';
+import { getGrade } from '@/lib/grade';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BillingPreviewTable from '@/components/invoices/BillingPreviewTable';
 import type { BillingRow } from '@/components/invoices/BillingPreviewTable';
 import Link from 'next/link';
 
+const CAMPUSES = ['文府總校', '龍華校', '左新校'];
+const GRADE_ORDER = ['大班升小一', '小一', '小二', '小三', '小四', '小五', '小六'];
+
+function filterHref(billingMonth: string, campus: string, grade: string) {
+  const p = new URLSearchParams({ month: billingMonth });
+  if (campus) p.set('campus', campus);
+  if (grade) p.set('grade', grade);
+  return `/invoices/generate?${p.toString()}`;
+}
+
+const pillCls = (active: boolean) =>
+  `text-xs px-3 py-1.5 rounded-md border transition-colors ${active ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-muted'}`;
+
 const MONTHS = ['2026-07', '2026-08'];
 
 export default async function GenerateInvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; done?: string }>;
+  searchParams: Promise<{ month?: string; done?: string; campus?: string; grade?: string }>;
 }) {
-  const { month, done } = await searchParams;
+  const { month, done, campus, grade } = await searchParams;
   const billingMonth = MONTHS.includes(month ?? '') ? month! : null;
 
   if (!billingMonth) {
@@ -52,7 +66,7 @@ export default async function GenerateInvoicesPage({
         .lt('start_date', endDate),
       supabase
         .from('students')
-        .select('id, name, is_school_student')
+        .select('id, name, english_name, is_school_student, campus, enrollment_date, main_tutor_id')
         .order('name'),
       supabase
         .from('student_leaves')
@@ -69,8 +83,23 @@ export default async function GenerateInvoicesPage({
     ]);
 
   const alreadyBilled = new Set((existing ?? []).map((i) => i.student_id));
-  const enrolledIds = new Set((enrollments ?? []).map((e) => e.student_id));
+  const filteredEnrollments = (enrollments ?? []).filter((e) => (e.courses as any)?.course_type !== 'afternoon_basic');
+  const enrolledIds = new Set(filteredEnrollments.map((e) => e.student_id));
   const eligibleStudents = (students ?? []).filter((s) => enrolledIds.has(s.id));
+
+  const tutorIds = [...new Set(eligibleStudents.map((s: any) => s.main_tutor_id).filter(Boolean))];
+  let tutorNames: Record<string, string> = {};
+  if (tutorIds.length > 0) {
+    const { data: tutorRows } = await supabase.from('teachers').select('id, english_name').in('id', tutorIds);
+    for (const t of tutorRows ?? []) tutorNames[(t as any).id] = (t as any).english_name ?? '';
+  }
+
+  let filtered = eligibleStudents;
+  if (campus) filtered = filtered.filter((s: any) => s.campus === campus);
+  if (grade) filtered = filtered.filter((s: any) => {
+    const d = (s as any).enrollment_date;
+    return d ? getGrade(d) === grade : false;
+  });
 
   // Find students already charged YLE教材費 in any prior invoice
   const allInvoiceIds = (allInvoices ?? []).map((i) => i.id);
@@ -87,8 +116,8 @@ export default async function GenerateInvoicesPage({
       .forEach((i) => ylaChargedStudents.add(i.student_id));
   }
 
-  const rows: BillingRow[] = eligibleStudents.map((student) => {
-    const stuEnrollments = (enrollments ?? [])
+  const rows: BillingRow[] = filtered.map((student) => {
+    const stuEnrollments = filteredEnrollments
       .filter((e) => e.student_id === student.id)
       .map((e) => {
         const c = e.courses as any;
@@ -109,7 +138,11 @@ export default async function GenerateInvoicesPage({
     return {
       studentId: student.id,
       studentName: student.name,
+      studentEnglishName: (student as any).english_name ?? undefined,
       isSchoolStudent: student.is_school_student,
+      campus: (student as any).campus ?? undefined,
+      grade: (student as any).enrollment_date ? getGrade((student as any).enrollment_date) : undefined,
+      tutorName: (student as any).main_tutor_id ? tutorNames[(student as any).main_tutor_id] : undefined,
       courseNames: stuEnrollments.map((e) => e.courseName),
       leaveDays: leaveDates.length,
       items,
@@ -134,6 +167,24 @@ export default async function GenerateInvoicesPage({
         {done && (
           <Badge className="ml-auto">已生成 {done} 筆帳單</Badge>
         )}
+      </div>
+
+      {/* 篩選列 */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground w-10">校區</span>
+          <Link href={filterHref(billingMonth, '', grade ?? '')} className={pillCls(!campus)}>全部</Link>
+          {CAMPUSES.map((c) => (
+            <Link key={c} href={filterHref(billingMonth, c, grade ?? '')} className={pillCls(campus === c)}>{c}</Link>
+          ))}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground w-10">年級</span>
+          <Link href={filterHref(billingMonth, campus ?? '', '')} className={pillCls(!grade)}>全部</Link>
+          {GRADE_ORDER.map((g) => (
+            <Link key={g} href={filterHref(billingMonth, campus ?? '', g)} className={pillCls(grade === g)}>{g}</Link>
+          ))}
+        </div>
       </div>
 
       <Card>

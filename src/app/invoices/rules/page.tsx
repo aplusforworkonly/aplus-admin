@@ -71,6 +71,12 @@ const RULES: RuleRow[] = [
     note: '三個全報才享有優惠',
   },
   {
+    name: '兩天一夜校內生優惠',
+    amount: '-500',
+    amountType: 'discount',
+    conditions: ['身份：校內生', '報名：7/23、24｜兩天一夜'],
+  },
+  {
     name: '真人口說特惠',
     amount: '-800',
     amountType: 'discount',

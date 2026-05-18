@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { updateInvoiceStatus } from '@/actions/invoices';
 import type { InvoiceStatus } from '@/lib/supabase/types';
 import Link from 'next/link';
+import { AlertTriangle } from 'lucide-react';
+import RebillButton from '@/components/invoices/RebillButton';
+import CancelInvoiceButton from '@/components/invoices/CancelInvoiceButton';
 
 const STATUS_VARIANT: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   已結清: 'default',
@@ -29,7 +32,7 @@ export default async function InvoiceDetailPage({
       .from('invoices')
       .select('*, students(name, english_name)')
       .eq('id', id)
-      .single(),
+      .single() as any,
     supabase
       .from('invoice_line_items')
       .select('*')
@@ -38,6 +41,35 @@ export default async function InvoiceDetailPage({
   ]);
 
   if (error || !invoice) notFound();
+
+  // Stale detection: compare billed enrollment_ids vs current active enrollments
+  const billedIds: string[] = (invoice as any).enrollment_ids ?? [];
+  let cancelledCourses: string[] = [];
+  let addedCourses: string[] = [];
+
+  if (billedIds.length > 0) {
+    const [year, mon] = invoice.billing_month.split('-').map(Number);
+    const startDate = `${invoice.billing_month}-01`;
+    const endDate = new Date(year, mon, 1).toISOString().split('T')[0];
+
+    const [{ data: billedEnrollments }, { data: currentEnrollments }] = await Promise.all([
+      supabase.from('enrollments').select('id, status, courses(name)').in('id', billedIds),
+      supabase.from('enrollments').select('id, courses(name)')
+        .eq('student_id', invoice.student_id).eq('status', '生效')
+        .gte('start_date', startDate).lt('start_date', endDate),
+    ]);
+
+    cancelledCourses = (billedEnrollments ?? [])
+      .filter((e: any) => e.status !== '生效')
+      .map((e: any) => (e.courses as any)?.name ?? e.id);
+
+    const billedSet = new Set(billedIds);
+    addedCourses = (currentEnrollments ?? [])
+      .filter((e: any) => !billedSet.has(e.id))
+      .map((e: any) => (e.courses as any)?.name ?? e.id);
+  }
+
+  const isStale = cancelledCourses.length > 0 || addedCourses.length > 0;
 
   const studentName = (invoice.students as any)?.name ?? '—';
   const studentEnglishName = (invoice.students as any)?.english_name ?? null;
@@ -69,6 +101,24 @@ export default async function InvoiceDetailPage({
           {invoice.status}
         </Badge>
       </div>
+
+      {isStale && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-amber-700 font-medium text-sm">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            報名內容已變更，此帳單可能不是最新狀態
+          </div>
+          {cancelledCourses.length > 0 && (
+            <p className="text-sm text-amber-700 pl-6">已取消：{cancelledCourses.join('、')}</p>
+          )}
+          {addedCourses.length > 0 && (
+            <p className="text-sm text-amber-700 pl-6">新增報名：{addedCourses.join('、')}</p>
+          )}
+          <div className="pl-6">
+            <RebillButton studentId={invoice.student_id} billingMonth={invoice.billing_month} />
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -132,11 +182,14 @@ export default async function InvoiceDetailPage({
         </CardContent>
       </Card>
 
-      {invoice.status !== '已結清' && (
-        <form action={markPaid}>
-          <Button type="submit">標記為已結清</Button>
-        </form>
-      )}
+      <div className="flex items-center gap-4">
+        {invoice.status !== '已結清' && (
+          <form action={markPaid}>
+            <Button type="submit">標記為已結清</Button>
+          </form>
+        )}
+        <CancelInvoiceButton invoiceId={id} invoiceNo={invoice.invoice_no} />
+      </div>
     </div>
   );
 }

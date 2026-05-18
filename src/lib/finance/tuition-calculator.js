@@ -66,10 +66,10 @@ function calcDiscounts(enrollments, isSchoolStudent) {
     if (discount > 0) items.push({ name: '8月營隊組合優惠', amount: -discount });
   }
 
-  // 4. 戶外教學全報優惠：同月全報 → -300
-  if (JULY_TRIPS.every(c => names.includes(c)))
+  // 4. 戶外教學全報優惠：同月全報 → -300（課程名含年級後綴，用 startsWith 比對）
+  if (JULY_TRIPS.every(c => names.some(n => n.startsWith(c))))
     items.push({ name: '7月戶外教學全報優惠', amount: -300 });
-  if (AUGUST_TRIPS.every(c => names.includes(c)))
+  if (AUGUST_TRIPS.every(c => names.some(n => n.startsWith(c))))
     items.push({ name: '8月戶外教學全報優惠', amount: -300 });
 
   // 5. 真人口說特惠：有全日課程 + 至少 1 個營隊 → 折抵 800
@@ -79,6 +79,10 @@ function calcDiscounts(enrollments, isSchoolStudent) {
     if (hasFullDay && hasCamp)
       items.push({ name: '真人口說特惠', amount: -800 });
   }
+
+  // 6. 兩天一夜校內生優惠 → -500
+  if (isSchoolStudent && names.some(n => n.startsWith('7/23、24｜兩天一夜')))
+    items.push({ name: '兩天一夜校內生優惠', amount: -500 });
 
   return items;
 }

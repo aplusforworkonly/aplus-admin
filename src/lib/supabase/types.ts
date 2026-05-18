@@ -4,8 +4,8 @@ export type InvoiceStatus = '未繳' | '部分繳清' | '已結清';
 export type LineItemType = '常規學費' | '附加費' | '單次折抵';
 export type RelationshipType = '父' | '母' | '其他';
 export type CampusType = '文府總校' | '龍華校' | '左新校';
-export type EnrollmentStatus = '生效' | '候補' | '待審核' | '退班' | '已結業';
-export type CourseType = 'main_course' | 'camp' | 'trip';
+export type EnrollmentStatus = '生效' | '候補' | '退班' | '已結業' | '待審核';
+export type CourseType = 'main_course' | 'camp' | 'trip' | 'afternoon_basic';
 export type BillingCycle = 'monthly' | 'quarterly' | 'one_time';
 
 export interface Student {
@@ -139,9 +139,21 @@ export interface StudentCharge {
   updated_at: string;
 }
 
+export type ReviewType = 'field_change' | 'name_mismatch';
+
+export interface StudentReviewRequest {
+  id: string;
+  student_id: string;
+  review_type: ReviewType;
+  proposed_changes: Record<string, { old: unknown; new: unknown }>;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  resolved_at: string | null;
+}
+
 export interface RequestAuditLog {
   id: string;
-  request_table: 'leave_requests' | 'student_requests';
+  request_table: 'leave_requests' | 'student_requests' | 'student_review_requests';
   request_id: string;
   from_status: string;
   to_status: string;

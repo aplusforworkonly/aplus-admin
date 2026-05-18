@@ -6,6 +6,7 @@ import ClassRowActions from '@/components/classes/ClassRowActions';
 import BatchImportButton from '@/components/classes/BatchImportButton';
 import BatchCreateClassesButton from '@/components/classes/BatchCreateClassesButton';
 import BatchDeleteClassesButton from '@/components/classes/BatchDeleteClassesButton';
+import GenerateAfternoonBasicButton from '@/components/classes/GenerateAfternoonBasicButton';
 import UndoBanner from '@/components/classes/UndoBanner';
 import { Suspense } from 'react';
 
@@ -38,13 +39,14 @@ export default async function AdminClassesPage({
   if (term) query = query.eq('term', term);
   if (campus) query = query.eq('campus', campus);
 
-  const [{ data: classes }, { data: teachers }, { data: courses }, { data: allYearsRaw }, { data: activeEnrollments }] =
+  const [{ data: classes }, { data: teachers }, { data: courses }, { data: allYearsRaw }, { data: activeEnrollments }, { data: waitlistEnrollments }] =
     await Promise.all([
       query,
       supabase.from('teachers').select('id, name, english_name, department').neq('status', '離職').order('name'),
       supabase.from('courses').select('id, name').order('name'),
       supabase.from('classes').select('academic_year').not('academic_year', 'is', null),
       supabase.from('enrollments').select('course_id, student_id').eq('status', '生效'),
+      supabase.from('enrollments').select('course_id, student_id').eq('status', '候補'),
     ]);
 
   const years = [...new Set((allYearsRaw ?? []).map((r) => r.academic_year).filter(Boolean) as string[])].sort().reverse();
@@ -68,6 +70,13 @@ export default async function AdminClassesPage({
     enrolledByCourse.get(e.course_id)!.add(e.student_id);
   }
 
+  // 候補人數：course_id → count
+  const waitlistByCourse = new Map<string, number>();
+  for (const e of waitlistEnrollments ?? []) {
+    if (!e.course_id) continue;
+    waitlistByCourse.set(e.course_id, (waitlistByCourse.get(e.course_id) ?? 0) + 1);
+  }
+
   // 每個 course_id 真正待分班人數（報名但不在任何相關班級）
   const pendingByCourse = new Map<string, number>();
   for (const [courseId, enrolled] of enrolledByCourse) {
@@ -85,6 +94,7 @@ export default async function AdminClassesPage({
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">分班管理</h1>
         <div className="flex gap-2">
+          <GenerateAfternoonBasicButton />
           <BatchCreateClassesButton teachers={teachers ?? []} />
           <BatchImportButton />
           <BatchDeleteClassesButton
@@ -140,6 +150,7 @@ export default async function AdminClassesPage({
                       const studentCount = (c.class_students as any[])?.length ?? 0;
                       const courseId = (c as any).course_id as string | null;
                       const pendingCount = courseId ? (pendingByCourse.get(courseId) ?? 0) : 0;
+                      const waitlistCount = courseId ? (waitlistByCourse.get(courseId) ?? 0) : 0;
                       return (
                         <tr key={c.id} className="border-t hover:bg-muted/30">
                           <td className="px-4 py-2 font-medium">{c.name}</td>
@@ -163,6 +174,11 @@ export default async function AdminClassesPage({
                           </td>
                           <td className="px-4 py-2 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              {waitlistCount > 0 && (
+                                <span className="text-xs px-1.5 py-0.5 rounded border bg-rose-50 text-rose-700 border-rose-200">
+                                  候補 {waitlistCount}
+                                </span>
+                              )}
                               {pendingCount > 0 && (
                                 <span className="text-xs px-1.5 py-0.5 rounded border bg-orange-50 text-orange-700 border-orange-200">
                                   待分班 {pendingCount}
