@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createServerClient } from '@/lib/supabase/server';
 import { getGrade } from '@/lib/grade';
 import EnrollmentOverview, { type EnrollmentRow, type TutorOption } from '@/components/admin/EnrollmentOverview';
@@ -8,7 +10,6 @@ export default async function AdminRosterPage() {
   const [
     { data: students },
     { data: teachers },
-    { data: enrollments },
     { data: leaveData },
   ] = await Promise.all([
     supabase
@@ -22,10 +23,6 @@ export default async function AdminRosterPage() {
       .neq('status', '離職')
       .order('name'),
     supabase
-      .from('enrollments')
-      .select('student_id, start_date, courses(name, course_type)')
-      .eq('status', '生效'),
-    supabase
       .from('leave_requests')
       .select('student_id, leave_date, leave_date_end, note, status')
       .eq('status', 'approved')
@@ -33,6 +30,25 @@ export default async function AdminRosterPage() {
   ]);
 
   const studentIds = (students ?? []).map((s: any) => s.id);
+
+  // 分頁撈完所有生效合約（Supabase 每次最多回傳 1000 筆）
+  // 必須加 .order('id') 才能保證分頁一致，否則無 ORDER BY 時跨頁資料會漏掉
+  const enrollments: any[] = [];
+  if (studentIds.length > 0) {
+    const PAGE = 1000;
+    for (let offset = 0; ; offset += PAGE) {
+      const { data } = await supabase
+        .from('enrollments')
+        .select('student_id, start_date, courses(name, course_type)')
+        .eq('status', '生效')
+        .in('student_id', studentIds)
+        .order('id')
+        .range(offset, offset + PAGE - 1);
+      if (!data || data.length === 0) break;
+      enrollments.push(...data);
+      if (data.length < PAGE) break;
+    }
+  }
 
   const { data: classData } = studentIds.length > 0
     ? await supabase
@@ -74,13 +90,21 @@ export default async function AdminRosterPage() {
       augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
     }
   }
+  function dedupeEntries(entries: { name: string; order: number }[]) {
+    const seen = new Set<string>();
+    return entries
+      .sort((a, b) => a.order - b.order)
+      .filter((e) => { if (seen.has(e.name)) return false; seen.add(e.name); return true; })
+      .map((e) => e.name);
+  }
+
   const julyMap: Record<string, string[]> = {};
   const augustMap: Record<string, string[]> = {};
   for (const [sid, entries] of Object.entries(julyRaw)) {
-    julyMap[sid] = entries.sort((a, b) => a.order - b.order).map((e) => e.name);
+    julyMap[sid] = dedupeEntries(entries);
   }
   for (const [sid, entries] of Object.entries(augustRaw)) {
-    augustMap[sid] = entries.sort((a, b) => a.order - b.order).map((e) => e.name);
+    augustMap[sid] = dedupeEntries(entries);
   }
 
   const leaveMap: Record<string, { date: string; endDate: string | null; note: string | null }[]> = {};
