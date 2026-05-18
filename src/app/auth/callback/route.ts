@@ -5,7 +5,9 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
-  const siteOrigin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin;
+  const siteOrigin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin);
   const code = searchParams.get('code');
 
   if (code) {
