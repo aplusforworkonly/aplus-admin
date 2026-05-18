@@ -2,6 +2,7 @@ import { createSessionClient, createServerClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getGrade } from '@/lib/grade';
 import { getTeacherRosteringTabs, getTeacherAllowedCourses } from '@/actions/rostering-permissions';
+import { getTeacherByUser } from '@/lib/get-teacher';
 import RosteringMatrix, { type StudentRow, type ClassOption } from '@/components/classes/RosteringMatrix';
 import CourseSelectorNav, { type CourseNavEntry } from '@/components/classes/CourseSelectorNav';
 import InlineAddClassPanel from '@/components/classes/InlineAddClassPanel';
@@ -117,11 +118,7 @@ export default async function TeacherRosteringPage({
   if (!user) redirect('/login');
 
   const supabase = createServerClient();
-  const { data: selfTeacher } = await supabase
-    .from('teachers')
-    .select('id, name')
-    .eq('user_id', user.id)
-    .single();
+  const selfTeacher = await getTeacherByUser(supabase, user.id, user.email, 'id, name');
   if (!selfTeacher) redirect('/');
 
   // ── 取得分班權限 ──

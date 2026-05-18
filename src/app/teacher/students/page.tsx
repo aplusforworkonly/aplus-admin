@@ -1,4 +1,5 @@
 import { createSessionClient, createServerClient } from '@/lib/supabase/server';
+import { getTeacherByUser } from '@/lib/get-teacher';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Eye } from 'lucide-react';
@@ -16,15 +17,11 @@ export default async function TeacherStudentsPage(
   if (!user) redirect('/login');
 
   const supabase = createServerClient();
-  const { data: selfTeacher } = await supabase
-    .from('teachers')
-    .select('id, name, campus, is_supervisor')
-    .eq('user_id', user.id)
-    .single();
+  const selfTeacher = await getTeacherByUser(supabase, user.id, user.email, 'id, name, campus, is_supervisor');
   if (!selfTeacher) redirect('/');
 
   // 解析督導目標：非督導者忽略 view param
-  let targetTeacher: { id: string; name: string; english_name?: string | null; campus: string } = selfTeacher;
+  let targetTeacher: { id: string; name: string; english_name?: string | null; campus: string } = selfTeacher as any;
   let allTeachers: { id: string; name: string; english_name: string | null; campus: string }[] = [];
 
   if (selfTeacher.is_supervisor) {
@@ -132,8 +129,8 @@ export default async function TeacherStudentsPage(
     name: s.name ?? '—',
     englishName: s.english_name ?? null,
     classes: studentClassMap.get(s.id) ?? [],
-    julyEnrollments: (julyMap.get(s.id) ?? []).sort((a, b) => a.order - b.order).map(x => x.name),
-    augustEnrollments: (augustMap.get(s.id) ?? []).sort((a, b) => a.order - b.order).map(x => x.name),
+    julyEnrollments: (() => { const seen = new Set<string>(); return (julyMap.get(s.id) ?? []).sort((a, b) => a.order - b.order).filter(x => { if (seen.has(x.name)) return false; seen.add(x.name); return true; }).map(x => x.name); })(),
+    augustEnrollments: (() => { const seen = new Set<string>(); return (augustMap.get(s.id) ?? []).sort((a, b) => a.order - b.order).filter(x => { if (seen.has(x.name)) return false; seen.add(x.name); return true; }).map(x => x.name); })(),
     leaves: leaveMap.get(s.id) ?? [],
     leaveNote: s.leave_note ?? null,
     registrationNote: s.registration_note ?? null,

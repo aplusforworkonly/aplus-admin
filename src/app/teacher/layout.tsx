@@ -2,6 +2,7 @@ import TeacherTopBar from '@/components/teacher/TeacherTopBar';
 import TeacherBottomNav from '@/components/teacher/TeacherBottomNav';
 import { Suspense } from 'react';
 import { createSessionClient, createServerClient } from '@/lib/supabase/server';
+import { getTeacherByUser } from '@/lib/get-teacher';
 
 export default async function TeacherLayout({
   children,
@@ -15,11 +16,7 @@ export default async function TeacherLayout({
     const { data: { user } } = await session.auth.getUser();
     if (user) {
       const supabase = createServerClient();
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+      const teacher = await getTeacherByUser(supabase, user.id, user.email, 'id');
       if (teacher) {
         const { data: perms } = await supabase
           .from('rostering_permissions')

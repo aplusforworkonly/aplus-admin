@@ -1,4 +1,5 @@
 import { createSessionClient, createServerClient } from '@/lib/supabase/server';
+import { getTeacherByUser } from '@/lib/get-teacher';
 import { redirect } from 'next/navigation';
 import TeacherLeaveForm from '@/components/teacher/TeacherLeaveForm';
 import TeacherRequestHistory from '@/components/teacher/TeacherRequestHistory';
@@ -21,15 +22,11 @@ export default async function TeacherPage(props: {
 
   const supabase = createServerClient();
 
-  const { data: selfTeacher } = await supabase
-    .from('teachers')
-    .select('id, name, campus, is_supervisor')
-    .eq('user_id', user.id)
-    .single();
+  const selfTeacher = await getTeacherByUser(supabase, user.id, user.email, 'id, name, campus, is_supervisor');
   if (!selfTeacher) redirect('/');
 
   // 解析督導目標：非督導者忽略 view param
-  let targetTeacher: { id: string; name: string; english_name?: string | null; campus: string } = selfTeacher;
+  let targetTeacher: { id: string; name: string; english_name?: string | null; campus: string } = selfTeacher as any;
   let allTeachers: { id: string; name: string; english_name: string | null; campus: string }[] = [];
 
   if (selfTeacher.is_supervisor) {
