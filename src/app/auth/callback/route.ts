@@ -7,7 +7,10 @@ export async function GET(request: Request) {
   const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
   const siteOrigin =
     process.env.NEXT_PUBLIC_SITE_URL ??
-    (forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin);
+    (forwardedHost ? `${forwardedProto}://${forwardedHost}` : null) ??
+    (origin.startsWith('http://localhost') || origin.startsWith('http://10.')
+      ? 'https://aplus-admin.zeabur.app'
+      : origin);
   const code = searchParams.get('code');
 
   if (code) {
