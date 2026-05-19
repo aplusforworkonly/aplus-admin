@@ -38,7 +38,7 @@ export default async function LeavesPage({
       .order('created_at'),
     supabase
       .from('leave_requests')
-      .select('id, status, request_type, leave_date, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name)')
+      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -325,7 +325,11 @@ export default async function LeavesPage({
                       </div>
                     </TableCell>
                     <TableCell className="text-sm font-mono">
-                      {r.leave_date ?? '—'}
+                      {r.leave_date
+                        ? r.leave_date_end
+                          ? `${r.leave_date} ～ ${r.leave_date_end}`
+                          : r.leave_date
+                        : '—'}
                     </TableCell>
                     <TableCell className="text-sm">
                       {(r as any).teachers?.name ?? '—'}
