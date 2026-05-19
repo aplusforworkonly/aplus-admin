@@ -98,12 +98,18 @@ export default async function TeacherStudentsPage(
 
   const COURSE_TYPE_ORDER: Record<string, number> = { main_course: 0, camp: 1, trip: 2 };
 
+  function courseMonth(name: string, startDate: string): string {
+    const m = name.match(/^(\d+)[\/月]/);
+    if (m) return m[1].padStart(2, '0');
+    return (startDate ?? '').slice(5, 7);
+  }
+
   const julyMap = new Map<string, { name: string; order: number }[]>();
   const augustMap = new Map<string, { name: string; order: number }[]>();
   for (const e of enrollments) {
     const c = (e as any).courses;
     if (!c || c.course_type === 'material' || c.course_type === 'afternoon_basic') continue;
-    const month = (e.start_date ?? '').slice(5, 7);
+    const month = courseMonth(c.name, e.start_date);
     const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     if (month === '07') {
       if (!julyMap.has(e.student_id)) julyMap.set(e.student_id, []);
