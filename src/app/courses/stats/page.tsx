@@ -35,11 +35,24 @@ export default async function CourseStatsPage({
   const { view } = await searchParams;
   const supabase = createServerClient();
 
-  const [{ data: courses }, { data: enrollments }, { data: students }] = await Promise.all([
+  const [{ data: courses }, { data: students }] = await Promise.all([
     supabase.from('courses').select('id, name, course_type, max_capacity').neq('course_type', 'material'),
-    supabase.from('enrollments').select('course_id, campus, status, student_id').in('status', ['生效', '候補']),
     supabase.from('students').select('id, enrollment_date'),
   ]);
+
+  // 分頁撈完所有合約（Supabase 每次最多 1000 筆）
+  const enrollments: any[] = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data } = await supabase
+      .from('enrollments')
+      .select('course_id, campus, status, student_id')
+      .in('status', ['生效', '候補'])
+      .range(offset, offset + PAGE - 1);
+    if (!data || data.length === 0) break;
+    enrollments.push(...data);
+    if (data.length < PAGE) break;
+  }
 
   const studentGrade: Record<string, string> = {};
   for (const s of students ?? []) {
