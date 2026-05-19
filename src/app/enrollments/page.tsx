@@ -7,14 +7,9 @@ export default async function EnrollmentsPage() {
   const supabase = createServerClient();
 
   const [
-    { data: enrollments, error },
     { data: classes },
     { data: classStudents },
   ] = await Promise.all([
-    supabase
-      .from('enrollments')
-      .select('id, contract_no, campus, start_date, end_date, status, student_id, students(name, english_name), courses(name, course_type)')
-      .order('created_at', { ascending: false }),
     supabase
       .from('classes')
       .select('id, name, academic_year, term, teachers(name)')
@@ -25,7 +20,20 @@ export default async function EnrollmentsPage() {
       .select('class_id, student_id'),
   ]);
 
-  if (error) throw new Error(error.message);
+  // 分頁撈完所有合約（Supabase 每次最多 1000 筆）
+  const enrollments: any[] = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase
+      .from('enrollments')
+      .select('id, contract_no, campus, start_date, end_date, status, student_id, students(name, english_name), courses(name, course_type)')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    enrollments.push(...data);
+    if (data.length < PAGE) break;
+  }
 
   const classOptions = (classes ?? []).map((c: any) => {
     const teacher = (c.teachers as any)?.name ? ` (${(c.teachers as any).name})` : '';
