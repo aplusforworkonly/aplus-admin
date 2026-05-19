@@ -29,7 +29,7 @@ export async function getStudentEnrollments(studentId: string): Promise<StudentE
     .eq('student_id', studentId)
     .eq('status', '生效');
   return (data ?? [])
-    .filter((e: any) => e.courses?.course_type !== 'material')
+    .filter((e: any) => e.courses?.course_type !== 'material' && e.courses?.course_type !== 'afternoon_basic')
     .map((e: any) => ({
       enrollmentId: e.id,
       courseId: e.course_id,

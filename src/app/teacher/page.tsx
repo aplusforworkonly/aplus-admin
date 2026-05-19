@@ -67,6 +67,7 @@ export default async function TeacherPage(props: {
       .from('courses')
       .select('id, name')
       .neq('course_type', 'material')
+      .neq('course_type', 'afternoon_basic')
       .order('name'),
     supabase
       .from('student_requests')
