@@ -102,7 +102,7 @@ export default async function TeacherStudentsPage(
   const augustMap = new Map<string, { name: string; order: number }[]>();
   for (const e of enrollments) {
     const c = (e as any).courses;
-    if (!c || c.course_type === 'material') continue;
+    if (!c || c.course_type === 'material' || c.course_type === 'afternoon_basic') continue;
     const month = (e.start_date ?? '').slice(5, 7);
     const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     if (month === '07') {
