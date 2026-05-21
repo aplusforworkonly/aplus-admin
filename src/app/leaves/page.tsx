@@ -33,12 +33,12 @@ export default async function LeavesPage({
       .order('leave_date'),
     supabase
       .from('leave_requests')
-      .select('id, request_type, leave_date, leave_date_end, leave_type, reason, note, status, created_at, disease_type, proof_file_url, teacher_id, parent_id, students(name, english_name, campus), teachers!teacher_id(name), parents(name), courses(name)')
+      .select('id, request_type, leave_date, leave_date_end, leave_type, reason, note, status, created_at, disease_type, proof_file_url, teacher_id, parent_id, students(name, english_name, campus), teachers!teacher_id(name, english_name), parents(name), courses(name)')
       .eq('status', 'pending')
       .order('created_at'),
     supabase
       .from('leave_requests')
-      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name)')
+      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name, english_name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -192,7 +192,9 @@ export default async function LeavesPage({
                         : r.courses?.name ?? '—'}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {r.teacher_id ? `老師：${r.teachers?.name ?? ''}` : `家長：${r.parents?.name ?? ''}`}
+                      {r.teacher_id
+                        ? `老師：${(r.teachers as any)?.english_name ? `${(r.teachers as any).english_name}（${r.teachers?.name}）` : (r.teachers?.name ?? '')}`
+                        : `家長：${r.parents?.name ?? ''}`}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       <div className="space-y-1">
@@ -332,7 +334,11 @@ export default async function LeavesPage({
                         : '—'}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {(r as any).teachers?.name ?? '—'}
+                      {(r as any).teachers
+                        ? ((r as any).teachers.english_name
+                            ? `${(r as any).teachers.english_name}（${(r as any).teachers.name}）`
+                            : (r as any).teachers.name)
+                        : '—'}
                     </TableCell>
                     <TableCell className="text-sm">
                       {r.handled_at ? new Date(r.handled_at).toLocaleDateString('zh-TW') : '—'}
