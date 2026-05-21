@@ -61,12 +61,12 @@ export default async function RequestsPage({
   const [{ data: pending }, { data: history }] = await Promise.all([
     supabase
       .from('student_requests')
-      .select('id, request_type, reason, created_at, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
+      .select('id, request_type, reason, created_at, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name, english_name)')
       .eq('status', 'pending')
       .order('created_at'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, handled_at, handled_by, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
+      .select('id, status, request_type, reason, created_at, handled_at, handled_by, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name, english_name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -176,7 +176,13 @@ export default async function RequestsPage({
                       </p>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{r.teachers?.name ?? '—'}</TableCell>
+                  <TableCell className="text-sm">
+                    {r.teachers
+                      ? ((r.teachers as any).english_name
+                          ? `${(r.teachers as any).english_name}（${r.teachers.name}）`
+                          : r.teachers.name)
+                      : '—'}
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs whitespace-pre-wrap break-words">
                     {(() => {
                       if (r.request_type === 'purchase' || r.request_type === 'departure') {
@@ -240,7 +246,13 @@ export default async function RequestsPage({
                         </p>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">{(r as any).teachers?.name ?? '—'}</TableCell>
+                    <TableCell className="text-sm">
+                      {(r as any).teachers
+                        ? ((r as any).teachers.english_name
+                            ? `${(r as any).teachers.english_name}（${(r as any).teachers.name}）`
+                            : (r as any).teachers.name)
+                        : '—'}
+                    </TableCell>
                     <TableCell className="text-sm">
                       {(auditByRequestId[r.id] ?? []).at(-1)?.teachers?.name ?? handledByNames[r.handled_by] ?? '—'}
                     </TableCell>
