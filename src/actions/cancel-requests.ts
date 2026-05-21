@@ -130,8 +130,18 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
         if ((count ?? 0) >= course.max_capacity) newStatus = '候補';
       }
 
-      const enrollStart = (req as any).start_date
-        ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
+      let enrollStart: string = (req as any).start_date ?? '';
+      if (!enrollStart) {
+        const { data: sample } = await supabase
+          .from('enrollments')
+          .select('start_date')
+          .eq('course_id', req.course_id)
+          .eq('status', '生效')
+          .limit(1)
+          .single();
+        enrollStart = sample?.start_date
+          ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
+      }
       await supabase.from('enrollments').insert({
         student_id: req.student_id,
         course_id: req.course_id,
