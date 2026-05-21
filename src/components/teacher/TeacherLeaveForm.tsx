@@ -189,6 +189,7 @@ export default function TeacherLeaveForm({
                 studentId,
                 courseId: enroll?.courseId ?? null,
                 enrollmentId: enrollId,
+                startDate: enroll?.startDate ?? null,
                 reason,
                 requestType: 'cancel',
               });

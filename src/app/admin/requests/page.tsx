@@ -61,12 +61,12 @@ export default async function RequestsPage({
   const [{ data: pending }, { data: history }] = await Promise.all([
     supabase
       .from('student_requests')
-      .select('id, request_type, reason, created_at, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
+      .select('id, request_type, reason, created_at, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
       .eq('status', 'pending')
       .order('created_at'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, handled_at, handled_by, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
+      .select('id, status, request_type, reason, created_at, handled_at, handled_by, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name)')
       .in('status', ['approved', 'rejected'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -168,7 +168,14 @@ export default async function RequestsPage({
                       <p className="text-xs text-muted-foreground">{(r.students as any).english_name}</p>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
+                  <TableCell className="text-sm">
+                    <p>{r.courses?.name ?? '—'}</p>
+                    {r.start_date && (
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(r.start_date).toLocaleDateString('zh-TW', { month: 'long' })}
+                      </p>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm">{r.teachers?.name ?? '—'}</TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs whitespace-pre-wrap break-words">
                     {(() => {
@@ -225,7 +232,14 @@ export default async function RequestsPage({
                         <p className="text-xs text-muted-foreground">{(r.students as any).english_name}</p>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm">{r.courses?.name ?? '—'}</TableCell>
+                    <TableCell className="text-sm">
+                      <p>{r.courses?.name ?? '—'}</p>
+                      {r.start_date && (
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(r.start_date).toLocaleDateString('zh-TW', { month: 'long' })}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm">{(r as any).teachers?.name ?? '—'}</TableCell>
                     <TableCell className="text-sm">
                       {(auditByRequestId[r.id] ?? []).at(-1)?.teachers?.name ?? handledByNames[r.handled_by] ?? '—'}

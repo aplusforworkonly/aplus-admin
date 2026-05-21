@@ -44,26 +44,49 @@ function parseDateSortKey(label: string): number {
 
 function buildCourseGroups(
   courses: { id: string; name: string; course_type: string }[],
-  enrollmentCounts: Record<string, number>
+  enrollments: { course_id: string; student_id: string }[]
 ): CourseGroup[] {
-  const map = new Map<string, { label: string; courseIds: string[]; courseType: string }>();
+  const studentsByCourse = new Map<string, Set<string>>();
+  for (const e of enrollments) {
+    if (!studentsByCourse.has(e.course_id)) studentsByCourse.set(e.course_id, new Set());
+    studentsByCourse.get(e.course_id)!.add(e.student_id);
+  }
+
+  const map = new Map<string, { label: string; courseIds: string[]; courseType: string; studentIds: Set<string> }>();
 
   for (const course of courses) {
     const match = course.name.match(/^(.+?)\s*[|｜]\s*(.+)$/);
+    let groupKey: string;
+    let groupLabel: string;
+
     if (match) {
       const datePrefix = match[1].trim();
       const afterPipe = match[2].trim();
       const baseActivity = afterPipe.replace(/（[^）]*）$/, '').trim();
-      const groupKey = `${datePrefix}||${baseActivity}`;
-      const groupLabel = `${datePrefix}｜${baseActivity}`;
-      if (!map.has(groupKey)) {
-        map.set(groupKey, { label: groupLabel, courseIds: [], courseType: course.course_type });
+      if (course.course_type === 'afternoon_basic') {
+        groupKey = `afternoon_basic||${baseActivity}`;
+        groupLabel = baseActivity;
+      } else {
+        groupKey = `${datePrefix}||${baseActivity}`;
+        groupLabel = `${datePrefix}｜${baseActivity}`;
       }
-      map.get(groupKey)!.courseIds.push(course.id);
     } else {
-      const key = `solo||${course.id}`;
-      map.set(key, { label: course.name, courseIds: [course.id], courseType: course.course_type });
+      if (course.course_type === 'main_course') {
+        const baseName = course.name.replace(/^[0-9]+月/, '').trim();
+        groupKey = `main_course||${baseName}`;
+        groupLabel = baseName;
+      } else {
+        groupKey = `solo||${course.id}`;
+        groupLabel = course.name;
+      }
     }
+
+    if (!map.has(groupKey)) {
+      map.set(groupKey, { label: groupLabel, courseIds: [], courseType: course.course_type, studentIds: new Set() });
+    }
+    const entry = map.get(groupKey)!;
+    entry.courseIds.push(course.id);
+    for (const sid of studentsByCourse.get(course.id) ?? []) entry.studentIds.add(sid);
   }
 
   return [...map.values()]
@@ -71,7 +94,7 @@ function buildCourseGroups(
       value: g.courseIds.join(','),
       label: g.label,
       courseIds: g.courseIds,
-      totalCount: g.courseIds.reduce((sum, id) => sum + (enrollmentCounts[id] ?? 0), 0),
+      totalCount: g.studentIds.size,
       courseType: g.courseType,
     }))
     .sort((a, b) => {
@@ -162,16 +185,13 @@ export default async function RosteringMatrixPage({
   const tabCourseIds = courses.map((c) => c.id);
 
   const { data: allEnrollments } = tabCourseIds.length > 0
-    ? await supabase.from('enrollments').select('course_id').eq('status', '生效').in('course_id', tabCourseIds)
+    ? await supabase.from('enrollments').select('course_id, student_id').eq('status', '生效').in('course_id', tabCourseIds)
     : { data: [] };
 
-  const enrollmentCounts: Record<string, number> = {};
-  for (const e of allEnrollments ?? []) {
-    const cid = (e as any).course_id;
-    if (cid) enrollmentCounts[cid] = (enrollmentCounts[cid] ?? 0) + 1;
-  }
-
-  const groups = buildCourseGroups(courses, enrollmentCounts);
+  const groups = buildCourseGroups(
+    courses,
+    (allEnrollments ?? []) as { course_id: string; student_id: string }[]
+  );
 
   const navEntries: CourseNavEntry[] = groups.map((g) => ({
     label: g.label,
