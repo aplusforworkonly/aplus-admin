@@ -30,6 +30,7 @@ interface TeacherLeaveFormProps {
   students: Student[];
   courses: Course[];
   courseMonths: Record<string, number[]>;
+  courseCapacity?: Record<string, { enrolled: number; max: number }>;
   defaultTab?: 'leave' | 'course' | 'purchase' | 'departure';
 }
 
@@ -38,6 +39,7 @@ export default function TeacherLeaveForm({
   students,
   courses,
   courseMonths,
+  courseCapacity,
   defaultTab = 'leave',
 }: TeacherLeaveFormProps) {
   const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure'>(defaultTab);
@@ -385,19 +387,29 @@ export default function TeacherLeaveForm({
               <p className="text-sm text-muted-foreground py-2">無可加報課程</p>
             ) : (
               <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
-                {addSlots.map(({ slotKey, label }) => (
-                  <label key={slotKey} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={selectedCourseIds.includes(slotKey)}
-                      onCheckedChange={() =>
-                        setSelectedCourseIds(prev =>
-                          prev.includes(slotKey) ? prev.filter(x => x !== slotKey) : [...prev, slotKey]
-                        )
-                      }
-                    />
-                    <span className="text-sm">{label}</span>
-                  </label>
-                ))}
+                {addSlots.map(({ slotKey, label }) => {
+                  const { courseId } = parseSlotKey(slotKey);
+                  const cap = courseCapacity?.[courseId];
+                  const isFull = cap ? cap.enrolled >= cap.max : false;
+                  return (
+                    <label key={slotKey} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={selectedCourseIds.includes(slotKey)}
+                        onCheckedChange={() =>
+                          setSelectedCourseIds(prev =>
+                            prev.includes(slotKey) ? prev.filter(x => x !== slotKey) : [...prev, slotKey]
+                          )
+                        }
+                      />
+                      <span className="text-sm">{label}</span>
+                      {cap && (
+                        <span className={`text-xs ${isFull ? 'text-rose-600 font-medium' : 'text-muted-foreground'}`}>
+                          （{cap.enrolled}/{cap.max}{isFull ? ' 已額滿，將列候補' : ''}）
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             )
           )}

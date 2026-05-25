@@ -61,7 +61,7 @@ export default async function RequestsPage({
   const [{ data: pending }, { data: history }] = await Promise.all([
     supabase
       .from('student_requests')
-      .select('id, request_type, reason, created_at, start_date, students(name, english_name, campus), courses(name), teachers!teacher_id(name, english_name)')
+      .select('id, request_type, reason, created_at, start_date, course_id, students(name, english_name, campus), courses(name, max_capacity), teachers!teacher_id(name, english_name)')
       .eq('status', 'pending')
       .order('created_at'),
     supabase
@@ -92,6 +92,24 @@ export default async function RequestsPage({
   if (handledByIds.length > 0) {
     const { data: teacherRows } = await supabase.from('teachers').select('id, name').in('id', handledByIds);
     for (const t of teacherRows ?? []) handledByNames[t.id] = t.name;
+  }
+
+  const addCourseIds = [...new Set(
+    (pending ?? [])
+      .filter((r: any) => r.request_type === 'add' && r.courses?.max_capacity != null)
+      .map((r: any) => r.course_id)
+      .filter(Boolean)
+  )];
+  const pendingEnrollCountMap: Record<string, number> = {};
+  if (addCourseIds.length > 0) {
+    const { data: ec } = await supabase
+      .from('enrollments')
+      .select('course_id')
+      .in('course_id', addCourseIds)
+      .eq('status', '生效');
+    for (const e of ec ?? []) {
+      pendingEnrollCountMap[(e as any).course_id] = (pendingEnrollCountMap[(e as any).course_id] ?? 0) + 1;
+    }
   }
 
   const filteredPending = (pending ?? []).filter((r: any) =>
@@ -175,6 +193,16 @@ export default async function RequestsPage({
                         {new Date(r.start_date).toLocaleDateString('zh-TW', { month: 'long' })}
                       </p>
                     )}
+                    {r.request_type === 'add' && r.courses?.max_capacity != null && (() => {
+                      const enrolled = pendingEnrollCountMap[r.course_id] ?? 0;
+                      const max = r.courses.max_capacity;
+                      const isFull = enrolled >= max;
+                      return (
+                        <p className={`text-xs mt-0.5 ${isFull ? 'text-rose-600 font-medium' : 'text-muted-foreground'}`}>
+                          {enrolled}/{max} 人{isFull ? '（核准後將列候補）' : ''}
+                        </p>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-sm">
                     {r.teachers

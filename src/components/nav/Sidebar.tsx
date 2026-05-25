@@ -15,6 +15,7 @@ const links: LinkDef[] = [
   { href: '/invoices', label: '帳單管理' },
   { href: '/teachers', label: '老師管理' },
   { href: '/admin/classes/matrix', label: '分班管理' },
+  { href: '/admin/waitlist', label: '候補管理' },
   { href: '/admin/rostering-permissions', label: '分班權限設定' },
   { href: '/leaves', label: '請假管理', countKey: 'leaves' },
   { href: '/admin/requests', label: '異動審核', countKey: 'requests' },

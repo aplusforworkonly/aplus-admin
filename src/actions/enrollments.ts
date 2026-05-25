@@ -10,6 +10,18 @@ export async function updateEnrollmentStatus(id: string, status: EnrollmentStatu
   revalidatePath('/enrollments');
 }
 
+export async function promoteFromWaitlist(id: string) {
+  const supabase = createServerClient();
+  const { error } = await supabase
+    .from('enrollments')
+    .update({ status: '生效' })
+    .eq('id', id)
+    .eq('status', '候補');
+  if (error) throw new Error(error.message);
+  revalidatePath('/enrollments');
+  revalidatePath('/admin/waitlist');
+}
+
 export async function approveAllPending() {
   const supabase = createServerClient();
   const { error } = await supabase

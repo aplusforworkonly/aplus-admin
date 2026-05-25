@@ -65,7 +65,7 @@ export default async function TeacherPage(props: {
       .order('name'),
     supabase
       .from('courses')
-      .select('id, name')
+      .select('id, name, max_capacity')
       .neq('course_type', 'material')
       .neq('course_type', 'afternoon_basic')
       .order('name'),
@@ -82,7 +82,26 @@ export default async function TeacherPage(props: {
   ]);
 
   const students = (studentsList ?? []) as { id: string; name: string; english_name?: string | null }[];
-  const courses = (coursesList ?? []) as { id: string; name: string }[];
+  const courses = (coursesList ?? []) as { id: string; name: string; max_capacity?: number | null }[];
+
+  const cappedCourseIds = courses.filter((c) => c.max_capacity != null).map((c) => c.id);
+  const enrollCountMap: Record<string, number> = {};
+  if (cappedCourseIds.length > 0) {
+    const { data: enrollCounts } = await supabase
+      .from('enrollments')
+      .select('course_id')
+      .in('course_id', cappedCourseIds)
+      .eq('status', '生效');
+    for (const e of enrollCounts ?? []) {
+      enrollCountMap[(e as any).course_id] = (enrollCountMap[(e as any).course_id] ?? 0) + 1;
+    }
+  }
+  const courseCapacity = Object.fromEntries(
+    cappedCourseIds.map((id) => [id, {
+      enrolled: enrollCountMap[id] ?? 0,
+      max: courses.find((c) => c.id === id)!.max_capacity as number,
+    }])
+  );
 
   // 推導每門課有哪些月份（從 enrollments.start_date），供加報清單展開月份選項
   const courseIds = courses.map((c) => c.id);
@@ -201,7 +220,7 @@ export default async function TeacherPage(props: {
 
           {/* 非督導查看模式才顯示表單 */}
           {!isViewingOther && (
-            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} defaultTab={defaultTab} />
+            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} courseCapacity={courseCapacity} defaultTab={defaultTab} />
           )}
         </CardContent>
       </Card>
