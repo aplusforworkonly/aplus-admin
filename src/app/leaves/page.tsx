@@ -300,6 +300,7 @@ export default async function LeavesPage({
                   <TableHead>處理人員</TableHead>
                   <TableHead>處理時間</TableHead>
                   <TableHead className="w-20">結果</TableHead>
+                  <TableHead>原因</TableHead>
                   <TableHead>審核歷程</TableHead>
                 </TableRow>
               </TableHeader>
@@ -347,6 +348,9 @@ export default async function LeavesPage({
                       <Badge variant={r.status === 'approved' ? 'default' : 'outline'}>
                         {r.status === 'approved' ? '已核准' : '已退回'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {r.reason ?? '—'}
                     </TableCell>
                     <TableCell>
                       <AuditLogEntries logs={leaveAuditByRequestId[r.id] ?? []} />
