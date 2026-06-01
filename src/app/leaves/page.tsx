@@ -65,17 +65,6 @@ export default async function LeavesPage({
     !campus || (l.students as any)?.campus === campus
   );
 
-  const CAMPUS_LIST = ['文府總校', '龍華校', '左新校'] as const;
-  const leavesByCampusAndDate: Record<string, Record<string, any[]>> = {};
-  for (const c of CAMPUS_LIST) leavesByCampusAndDate[c] = {};
-  for (const l of leaves ?? []) {
-    const c = (l.students as any)?.campus;
-    const d = l.leave_date;
-    if (!c || !d || !leavesByCampusAndDate[c]) continue;
-    if (!leavesByCampusAndDate[c][d]) leavesByCampusAndDate[c][d] = [];
-    leavesByCampusAndDate[c][d].push(l);
-  }
-
   function statusLabel(s: string) {
     if (s === 'pending') return '待審';
     if (s === 'approved') return '核准';
@@ -112,10 +101,10 @@ export default async function LeavesPage({
     '其他': 'bg-muted text-muted-foreground',
   };
 
-  const months = Array.from({ length: 3 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  const months = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 2 + i, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  }).reverse();
 
   function monthLink(mo: string) {
     const p = new URLSearchParams();
@@ -294,65 +283,6 @@ export default async function LeavesPage({
           </Table>
         </CardContent>
       </Card>
-
-      {/* 月度請假一覽 */}
-      <div>
-        <h2 className="text-base font-semibold mb-3">月度請假一覽（{currentMonth}）</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {CAMPUS_LIST.map(campus => {
-            const dates = Object.keys(leavesByCampusAndDate[campus]).sort();
-            const totalCount = Object.values(leavesByCampusAndDate[campus]).flat().length;
-            return (
-              <Card key={campus}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    {campus}
-                    <Badge variant="secondary">{totalCount} 筆</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-16">日期</TableHead>
-                        <TableHead>請假學生</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dates.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={2} className="text-center text-muted-foreground py-6">
-                            本月無請假紀錄
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {dates.map(date => (
-                        <TableRow key={date}>
-                          <TableCell className="font-mono text-sm align-top">
-                            {date.substring(5).replace('-', '/')}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-x-2 gap-y-1">
-                              {leavesByCampusAndDate[campus][date].map((l: any) => (
-                                <span key={l.id} className="inline-flex items-center gap-1 text-sm">
-                                  {l.students?.name}
-                                  <span className={`text-xs px-1.5 py-0.5 rounded-full border ${LEAVE_TYPE_COLOR[l.leave_type] ?? ''}`}>
-                                    {l.leave_type}
-                                  </span>
-                                </span>
-                              ))}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
 
       {/* 已處理歷史紀錄 */}
       {(history ?? []).length > 0 && (

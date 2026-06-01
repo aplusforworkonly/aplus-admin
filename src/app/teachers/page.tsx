@@ -7,7 +7,7 @@ export default async function TeachersPage() {
   const supabase = createServerClient();
   const { data: teachers } = await supabase
     .from('teachers')
-    .select('id, name, english_name, email, campus, department, status, user_id, is_supervisor')
+    .select('id, name, english_name, email, campus, department, status, user_id')
     .neq('status', '離職')
     .order('name');
 
@@ -20,10 +20,7 @@ export default async function TeachersPage() {
         <ImportTeachersButton />
       </div>
 
-      <TeachersTable
-        teachers={(teachers ?? []) as any}
-        allActiveTeachers={(teachers ?? []).filter((t: any) => t.status === '在職') as any}
-      />
+      <TeachersTable teachers={(teachers ?? []) as any} />
     </div>
   );
 }

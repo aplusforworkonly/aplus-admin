@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createServerClient } from '@/lib/supabase/server';
 import { getGrade } from '@/lib/grade';
 import RosteringMatrix, { type StudentRow, type ClassOption } from '@/components/classes/RosteringMatrix';
@@ -44,15 +46,9 @@ function parseDateSortKey(label: string): number {
 
 function buildCourseGroups(
   courses: { id: string; name: string; course_type: string }[],
-  enrollments: { course_id: string; student_id: string }[]
+  countByCourse: Record<string, number>
 ): CourseGroup[] {
-  const studentsByCourse = new Map<string, Set<string>>();
-  for (const e of enrollments) {
-    if (!studentsByCourse.has(e.course_id)) studentsByCourse.set(e.course_id, new Set());
-    studentsByCourse.get(e.course_id)!.add(e.student_id);
-  }
-
-  const map = new Map<string, { label: string; courseIds: string[]; courseType: string; studentIds: Set<string> }>();
+  const map = new Map<string, { label: string; courseIds: string[]; courseType: string; totalCount: number }>();
 
   for (const course of courses) {
     const match = course.name.match(/^(.+?)\s*[|｜]\s*(.+)$/);
@@ -63,13 +59,8 @@ function buildCourseGroups(
       const datePrefix = match[1].trim();
       const afterPipe = match[2].trim();
       const baseActivity = afterPipe.replace(/（[^）]*）$/, '').trim();
-      if (course.course_type === 'afternoon_basic') {
-        groupKey = `afternoon_basic||${baseActivity}`;
-        groupLabel = baseActivity;
-      } else {
-        groupKey = `${datePrefix}||${baseActivity}`;
-        groupLabel = `${datePrefix}｜${baseActivity}`;
-      }
+      groupKey = `${datePrefix}||${baseActivity}`;
+      groupLabel = `${datePrefix}｜${baseActivity}`;
     } else {
       if (course.course_type === 'main_course') {
         const baseName = course.name.replace(/^[0-9]+月/, '').trim();
@@ -82,11 +73,11 @@ function buildCourseGroups(
     }
 
     if (!map.has(groupKey)) {
-      map.set(groupKey, { label: groupLabel, courseIds: [], courseType: course.course_type, studentIds: new Set() });
+      map.set(groupKey, { label: groupLabel, courseIds: [], courseType: course.course_type, totalCount: 0 });
     }
     const entry = map.get(groupKey)!;
     entry.courseIds.push(course.id);
-    for (const sid of studentsByCourse.get(course.id) ?? []) entry.studentIds.add(sid);
+    entry.totalCount += countByCourse[course.id] ?? 0;
   }
 
   return [...map.values()]
@@ -94,7 +85,7 @@ function buildCourseGroups(
       value: g.courseIds.join(','),
       label: g.label,
       courseIds: g.courseIds,
-      totalCount: g.studentIds.size,
+      totalCount: g.totalCount,
       courseType: g.courseType,
     }))
     .sort((a, b) => {
@@ -184,14 +175,24 @@ export default async function RosteringMatrixPage({
   const courses = (coursesData ?? []) as { id: string; name: string; course_type: string }[];
   const tabCourseIds = courses.map((c) => c.id);
 
-  const { data: allEnrollments } = tabCourseIds.length > 0
-    ? await supabase.from('enrollments').select('course_id, student_id').eq('status', '生效').in('course_id', tabCourseIds)
-    : { data: [] };
+  const countByCourse: Record<string, number> = {};
+  if (tabCourseIds.length > 0) {
+    const countResults = await Promise.all(
+      tabCourseIds.map(async (courseId) => {
+        const { count } = await supabase
+          .from('enrollments')
+          .select('student_id', { count: 'exact', head: true })
+          .eq('course_id', courseId)
+          .eq('status', '生效');
+        return [courseId, count ?? 0] as const;
+      })
+    );
+    for (const [courseId, count] of countResults) {
+      countByCourse[courseId] = count;
+    }
+  }
 
-  const groups = buildCourseGroups(
-    courses,
-    (allEnrollments ?? []) as { course_id: string; student_id: string }[]
-  );
+  const groups = buildCourseGroups(courses, countByCourse);
 
   const navEntries: CourseNavEntry[] = groups.map((g) => ({
     label: g.label,

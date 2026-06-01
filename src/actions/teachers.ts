@@ -45,6 +45,7 @@ export async function toggleSupervisor(id: string, value: boolean) {
   const { error } = await supabase.from('teachers').update({ is_supervisor: value }).eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/teachers');
+  revalidatePath('/admin/rostering-permissions');
 }
 
 export async function getSupervisorAccess(supervisorId: string): Promise<string[]> {

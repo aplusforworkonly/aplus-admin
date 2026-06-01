@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import FilterBar from './FilterBar';
+import SupervisorCell from '@/components/teachers/SupervisorCell';
 
 const TABS = [
   { key: 'camp',    label: '冬夏令營 & 戶外教學' },
@@ -44,6 +45,7 @@ function PermissionToggle({
   );
 }
 
+
 export default async function RosteringPermissionsPage({
   searchParams,
 }: {
@@ -58,7 +60,7 @@ export default async function RosteringPermissionsPage({
   const [{ data: teachersData }, allPerms, { data: coursePermsData }] = await Promise.all([
     supabase
       .from('teachers')
-      .select('id, name, english_name, campus, department')
+      .select('id, name, english_name, campus, department, is_supervisor')
       .neq('status', '離職')
       .order('campus')
       .order('name'),
@@ -72,6 +74,7 @@ export default async function RosteringPermissionsPage({
     english_name: string | null;
     campus: string | null;
     department: string | null;
+    is_supervisor: boolean | null;
   }[];
 
   const campuses = [...new Set(allTeachers.map((t) => t.campus).filter(Boolean) as string[])].sort();
@@ -111,6 +114,9 @@ export default async function RosteringPermissionsPage({
                   {tab.label}
                 </th>
               ))}
+              <th className="py-3 px-4 text-center font-medium text-muted-foreground w-28">
+                督導權限
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -153,6 +159,13 @@ export default async function RosteringPermissionsPage({
                       </div>
                     </td>
                   ))}
+                  <td className="py-3 px-4 text-center">
+                    <SupervisorCell
+                      teacherId={teacher.id}
+                      initial={teacher.is_supervisor ?? false}
+                      allTeachers={allTeachers}
+                    />
+                  </td>
                 </tr>
               );
             })}
