@@ -45,6 +45,7 @@ export default function RosteringMatrix({
   const [gradeFilter, setGradeFilter] = useState('');
   const [campusFilter, setCampusFilter] = useState('');
   const [tutorFilter, setTutorFilter] = useState('');
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [saving, startSave] = useTransition();
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -172,6 +173,16 @@ export default function RosteringMatrix({
     });
   }
 
+  // 待分班數：用 assignments 草稿狀態即時計算，指派後立刻反映
+  const pendingRows = useMemo(
+    () => filteredRows.filter(({ row }) => !assignments[row.id]),
+    [filteredRows, assignments],
+  );
+  const pendingCount = pendingRows.length;
+
+  // 顯示列：若開啟「只看未分班」則進一步過濾
+  const displayRows = showOnlyPending ? pendingRows : filteredRows;
+
   const isDirty = initialRows.some((r) => assignments[r.id] !== r.assignedClassId);
   const changedCount = initialRows.filter((r) => assignments[r.id] !== r.assignedClassId).length;
 
@@ -261,17 +272,29 @@ export default function RosteringMatrix({
               {uniqueTutors.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
             {(gradeFilter || campusFilter || tutorFilter) && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => { setGradeFilter(''); setCampusFilter(''); setTutorFilter(''); }}
-                className="text-xs text-muted-foreground hover:text-foreground underline"
+                className="text-xs text-muted-foreground h-8 px-2"
               >
                 清除篩選
-              </button>
+              </Button>
             )}
-            {(gradeFilter || campusFilter || tutorFilter) && (
+            {pendingCount > 0 && (
+              <Button
+                size="sm"
+                variant={showOnlyPending ? 'default' : 'outline'}
+                onClick={() => setShowOnlyPending((v) => !v)}
+                className={showOnlyPending ? '' : 'text-amber-600 border-amber-300 hover:bg-amber-50'}
+              >
+                待分班 {pendingCount} 人
+              </Button>
+            )}
+            {(gradeFilter || campusFilter || tutorFilter || showOnlyPending) && (
               <span className="text-xs text-muted-foreground ml-auto">
-                顯示 {filteredRows.length} / {initialRows.length} 位
+                顯示 {displayRows.length} / {initialRows.length} 位
               </span>
             )}
           </div>
@@ -300,7 +323,7 @@ export default function RosteringMatrix({
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map(({ row, i }) => {
+                {displayRows.map(({ row, i }) => {
                   const inDragRange = dragRange !== null && i >= dragRange[0] && i <= dragRange[1];
                   return (
                     <tr

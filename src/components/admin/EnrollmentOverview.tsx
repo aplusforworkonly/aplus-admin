@@ -1,5 +1,6 @@
 'use client';
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,8 +19,8 @@ export type EnrollmentRow = {
   mainTutorId: string;
   mainTutorName: string;
   mainTutorCampus: string | null;
-  julyEnrollments: string[];
-  augustEnrollments: string[];
+  julyEnrollments: { name: string; courseId: string; hasClass: boolean }[];
+  augustEnrollments: { name: string; courseId: string; hasClass: boolean }[];
   leaves: { date: string; endDate: string | null; note: string | null }[];
   leaveNote: string | null;
   registrationNote: string | null;
@@ -61,7 +62,11 @@ function ProgramBadge({ type }: { type: string | null }) {
   return <span className={`text-xs px-1.5 py-0.5 rounded border ${cls}`}>{type}</span>;
 }
 
-function CourseList({ courses, month, noEnrollment }: { courses: string[]; month: '七月' | '八月'; noEnrollment?: boolean }) {
+function CourseList({ courses, month, noEnrollment }: {
+  courses: { name: string; courseId: string; hasClass: boolean }[];
+  month: '七月' | '八月';
+  noEnrollment?: boolean;
+}) {
   if (courses.length === 0) {
     if (noEnrollment) return <span className="text-xs text-muted-foreground italic">不報名</span>;
     return <span className="text-xs text-muted-foreground">—</span>;
@@ -71,9 +76,24 @@ function CourseList({ courses, month, noEnrollment }: { courses: string[]; month
     : 'bg-amber-50 text-amber-700 border-amber-200';
   return (
     <div className="flex flex-col gap-1">
-      {courses.map((name, i) => (
-        <span key={`${name}-${i}`} className={`text-xs px-2 py-0.5 rounded-full border w-fit ${color}`}>{name}</span>
-      ))}
+      {courses.map((course, i) => {
+        const baseCls = `inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border w-fit ${color}`;
+        if (!course.hasClass) {
+          return (
+            <Link
+              key={`${course.name}-${i}`}
+              href={`/admin/classes/matrix?tab=camp&courseIds=${course.courseId}`}
+              className="w-fit"
+            >
+              <span className={`${baseCls} ring-1 ring-orange-400 cursor-pointer hover:opacity-80`}>
+                <span className="text-orange-500 font-bold text-[10px] leading-none">!</span>
+                {course.name}
+              </span>
+            </Link>
+          );
+        }
+        return <span key={`${course.name}-${i}`} className={baseCls}>{course.name}</span>;
+      })}
     </div>
   );
 }
@@ -106,6 +126,7 @@ export default function EnrollmentOverview({
   const [sortKey, setSortKey] = useState<'name' | 'grade' | 'campus'>('name');
   const [onlyUnassigned, setOnlyUnassigned] = useState(false);
   const [onlySchoolStudents, setOnlySchoolStudents] = useState(false);
+  const [onlyNoClass, setOnlyNoClass] = useState(false);
 
   // Assignment mode
   const [assignMode, setAssignMode] = useState(false);
@@ -161,7 +182,10 @@ export default function EnrollmentOverview({
       const matchProgram = programTypeFilter === 'all' || r.programType === programTypeFilter;
       const matchUnassigned = !onlyUnassigned || !r.mainTutorId;
       const matchSchool = !onlySchoolStudents || r.isSchoolStudent;
-      return matchSearch && matchCampus && matchTutor && matchProgram && matchUnassigned && matchSchool;
+      const matchNoClass = !onlyNoClass
+        || r.julyEnrollments.some((e) => !e.hasClass)
+        || r.augustEnrollments.some((e) => !e.hasClass);
+      return matchSearch && matchCampus && matchTutor && matchProgram && matchUnassigned && matchSchool && matchNoClass;
     })
     .sort((a, b) => {
       if (sortKey === 'grade') return (GRADE_ORDER[a.grade] ?? 99) - (GRADE_ORDER[b.grade] ?? 99);
@@ -223,7 +247,7 @@ export default function EnrollmentOverview({
 
   const selectCls = 'h-8 rounded-md border border-input bg-background px-2 text-sm';
   const isFiltered = !!(search || campusFilter !== 'all' || tutorFilter !== 'all'
-    || programTypeFilter !== 'all' || onlyUnassigned || onlySchoolStudents);
+    || programTypeFilter !== 'all' || onlyUnassigned || onlySchoolStudents || onlyNoClass);
   const colCount = assignMode ? 10 : 9;
 
   return (
@@ -271,6 +295,10 @@ export default function EnrollmentOverview({
         <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
           <input type="checkbox" className="rounded" checked={onlySchoolStudents} onChange={(e) => setOnlySchoolStudents(e.target.checked)} />
           只看在校生
+        </label>
+        <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+          <input type="checkbox" className="rounded" checked={onlyNoClass} onChange={(e) => setOnlyNoClass(e.target.checked)} />
+          只看未分班
         </label>
         <span className="text-xs text-muted-foreground ml-auto">
           {isFiltered ? `${filtered.length} / ${rows.length} 人` : `共 ${rows.length} 人`}

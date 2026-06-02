@@ -319,7 +319,6 @@ export default async function RosteringMatrixPage({
     };
   });
 
-  const pendingCount = rows.filter((r) => !r.assignedClassId).length;
   const totalCount = rows.length;
   const currentNavValue = currentGroup?.value ?? courseIdList.join(',');
 
@@ -341,9 +340,6 @@ export default async function RosteringMatrixPage({
           {totalCount > 0 && (
             <span className="ml-2">
               共 {totalCount} 人
-              {pendingCount > 0 && (
-                <span className="ml-1 text-amber-600 font-medium">・待分班 {pendingCount} 人</span>
-              )}
             </span>
           )}
         </p>
