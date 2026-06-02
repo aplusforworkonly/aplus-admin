@@ -38,7 +38,7 @@ export default async function AdminRosterPage() {
   for (let offset = 0; ; offset += PAGE) {
     const { data } = await supabase
       .from('enrollments')
-      .select('student_id, course_id, start_date, courses(name, course_type)')
+      .select('student_id, start_date, courses(name, course_type)')
       .eq('status', '生效')
       .order('id')
       .range(offset, offset + PAGE - 1);
@@ -50,18 +50,11 @@ export default async function AdminRosterPage() {
   const { data: classData } = studentIds.length > 0
     ? await supabase
         .from('class_students')
-        .select('student_id, classes!inner(course_id)')
+        .select('student_id')
         .in('student_id', studentIds)
     : { data: [] };
 
-  // Per-student set of course_ids that already have a class assignment
-  const assignedCourseMap: Record<string, Set<string>> = {};
-  for (const cs of classData ?? []) {
-    const sid = (cs as any).student_id;
-    const courseId = (cs as any).classes?.course_id;
-    if (sid && courseId) (assignedCourseMap[sid] ??= new Set()).add(courseId);
-  }
-  const assignedToClassSet = new Set(Object.keys(assignedCourseMap));
+  const assignedToClassSet = new Set((classData ?? []).map((c: any) => c.student_id));
 
   function normalizeCampus(campus: string | null): string {
     if (campus === '總校') return '文府總校';
@@ -86,13 +79,13 @@ export default async function AdminRosterPage() {
     return (startDate ?? '').slice(5, 7);
   }
 
-  const julyRaw: Record<string, { name: string; courseId: string; order: number }[]> = {};
-  const augustRaw: Record<string, { name: string; courseId: string; order: number }[]> = {};
+  const julyRaw: Record<string, { name: string; order: number }[]> = {};
+  const augustRaw: Record<string, { name: string; order: number }[]> = {};
   for (const e of enrollments ?? []) {
     const c = (e as any).courses;
     if (!c || c.course_type === 'material' || c.course_type === 'afternoon_basic') continue;
     const month = courseMonth(c.name, (e as any).start_date);
-    const entry = { name: c.name, courseId: (e as any).course_id as string, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
+    const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     const sid = (e as any).student_id;
     if (month === '07') {
       julyRaw[sid] = [...(julyRaw[sid] ?? []), entry];
@@ -100,24 +93,21 @@ export default async function AdminRosterPage() {
       augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
     }
   }
-  function dedupeEntries(
-    entries: { name: string; courseId: string; order: number }[],
-    assignedCourseIds: Set<string>,
-  ): { name: string; courseId: string; hasClass: boolean }[] {
+  function dedupeEntries(entries: { name: string; order: number }[]) {
     const seen = new Set<string>();
     return entries
       .sort((a, b) => a.order - b.order)
       .filter((e) => { if (seen.has(e.name)) return false; seen.add(e.name); return true; })
-      .map((e) => ({ name: e.name, courseId: e.courseId, hasClass: assignedCourseIds.has(e.courseId) }));
+      .map((e) => e.name);
   }
 
-  const julyMap: Record<string, { name: string; courseId: string; hasClass: boolean }[]> = {};
-  const augustMap: Record<string, { name: string; courseId: string; hasClass: boolean }[]> = {};
+  const julyMap: Record<string, string[]> = {};
+  const augustMap: Record<string, string[]> = {};
   for (const [sid, entries] of Object.entries(julyRaw)) {
-    julyMap[sid] = dedupeEntries(entries, assignedCourseMap[sid] ?? new Set());
+    julyMap[sid] = dedupeEntries(entries);
   }
   for (const [sid, entries] of Object.entries(augustRaw)) {
-    augustMap[sid] = dedupeEntries(entries, assignedCourseMap[sid] ?? new Set());
+    augustMap[sid] = dedupeEntries(entries);
   }
 
   const leaveMap: Record<string, { date: string; endDate: string | null; note: string | null }[]> = {};
