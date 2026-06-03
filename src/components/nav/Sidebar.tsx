@@ -43,12 +43,17 @@ const groups: Group[] = [
   {
     label: '行政專區',
     children: [
-      { href: '/admin/tasks', label: '任務管理', countKey: 'adminTasks' },
-      { href: '/admin/task-routing', label: '指派規則設定' },
       { href: '/invoices', label: '帳單管理' },
       { href: '/leaves', label: '請假審核', countKey: 'leaves', exact: true },
       { href: '/admin/requests', label: '課程異動審核', countKey: 'requests' },
       { href: '/admin/student-reviews', label: '學生資料審核', countKey: 'studentReviews' },
+    ],
+  },
+  {
+    label: '任務管理專區',
+    children: [
+      { href: '/admin/tasks', label: '任務管理', countKey: 'adminTasks' },
+      { href: '/admin/task-routing', label: '指派規則設定' },
     ],
   },
 ];
