@@ -125,7 +125,7 @@ export default function LeaveCalendarGrid({
                             )}
                           </div>
                           {l.students?.english_name && (
-                            <div className="hidden sm:block text-[10px] text-muted-foreground truncate">
+                            <div className="text-[10px] text-muted-foreground truncate">
                               {l.students.english_name}
                             </div>
                           )}
