@@ -1,4 +1,4 @@
-import { getGrade } from '@/lib/grade';
+import { getGradeShort } from '@/lib/grade';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -129,8 +129,8 @@ export default function LeaveCalendarGrid({
                           <div className="text-[10px] text-muted-foreground truncate">
                             {[
                               l.students?.english_name,
-                              l.students?.enrollment_date ? getGrade(l.students.enrollment_date) : null,
-                            ].filter(Boolean).join(' · ')}
+                              l.students?.enrollment_date ? getGradeShort(l.students.enrollment_date) : null,
+                            ].filter(Boolean).join(' ')}
                           </div>
                         </div>
                       ))}
