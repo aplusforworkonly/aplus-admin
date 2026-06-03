@@ -75,7 +75,7 @@ export default async function TeacherCalendarPage({
   const { data: leaves } = studentIds.length > 0
     ? await supabase
         .from('student_leaves')
-        .select('id, leave_date, leave_type, students(name, english_name)')
+        .select('id, leave_date, leave_type, students(name, english_name, enrollment_date)')
         .gte('leave_date', startDate)
         .lt('leave_date', endDate)
         .in('student_id', studentIds)
