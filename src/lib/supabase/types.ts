@@ -160,3 +160,56 @@ export interface RequestAuditLog {
   handled_by: string | null;
   created_at: string;
 }
+
+// ============================================================
+// Admin Task Management
+// ============================================================
+
+export type FrequencyType = 'daily' | 'weekly' | 'monthly';
+export type TaskType     = 'project' | 'routine' | 'adhoc';
+export type TaskSource   = 'manual' | 'leave_request' | 'student_request' | 'student_review' | 'routine';
+export type TaskPriority = 'urgent' | 'normal' | 'low';
+export type TaskSize     = 'S' | 'M' | 'L';
+export type TaskStatus   = 'pending' | 'in_progress' | 'completed' | 'overdue';
+
+export interface RoutineDefinition {
+  id: string;
+  title: string;
+  description: string | null;
+  frequency_type: FrequencyType;
+  frequency_value: number | null;
+  advance_days: number;
+  campus: string[] | null;
+  assigned_to: string | null;
+  size: TaskSize;
+  priority: TaskPriority;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface AdminTask {
+  id: string;
+  title: string;
+  description: string | null;
+  task_type: TaskType;
+  task_source: TaskSource;
+  source_id: string | null;
+  parent_id: string | null;
+  routine_definition_id: string | null;
+  assigned_to: string | null;
+  campus: string[] | null;
+  priority: TaskPriority;
+  size: TaskSize | null;
+  status: TaskStatus;
+  due_date: string | null;
+  completed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminTaskWithRelations extends AdminTask {
+  assigned_teacher?: { id: string; name: string } | null;
+  sub_tasks?: AdminTask[];
+}

@@ -5,6 +5,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ApproveButtons from '@/components/leaves/ApproveButtons';
+import CancelButton from '@/components/leaves/CancelButton';
 import Link from 'next/link';
 
 const CAMPUSES = ['文府總校', '龍華校', '左新校'];
@@ -39,7 +40,7 @@ export default async function LeavesPage({
     supabase
       .from('leave_requests')
       .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name, english_name)')
-      .in('status', ['approved', 'rejected'])
+      .in('status', ['approved', 'rejected', 'cancelled'])
       .order('handled_at', { ascending: false })
       .limit(50),
   ]);
@@ -69,6 +70,7 @@ export default async function LeavesPage({
     if (s === 'pending') return '待審';
     if (s === 'approved') return '核准';
     if (s === 'rejected') return '退回';
+    if (s === 'cancelled') return '已取消';
     return s;
   }
 
@@ -80,7 +82,11 @@ export default async function LeavesPage({
           <div key={i} className="text-xs flex items-center gap-1">
             <span className="text-muted-foreground">{statusLabel(log.from_status)}</span>
             <span className="text-muted-foreground">→</span>
-            <span className={log.to_status === 'approved' ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+            <span className={
+              log.to_status === 'approved' ? 'text-green-600 font-medium'
+              : log.to_status === 'cancelled' ? 'text-amber-600 font-medium'
+              : 'text-red-500 font-medium'
+            }>
               {statusLabel(log.to_status)}
             </span>
             <span className="text-muted-foreground/40">·</span>
@@ -176,7 +182,7 @@ export default async function LeavesPage({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <Badge variant={r.request_type === '退班' ? 'destructive' : 'outline'}>
+                        <Badge variant={r.request_type === '退班' ? 'destructive' : r.request_type === '取消請假' ? 'secondary' : 'outline'}>
                           {r.request_type}
                         </Badge>
                         {r.disease_type && (
@@ -187,7 +193,7 @@ export default async function LeavesPage({
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {r.request_type === '請假'
+                      {(r.request_type === '請假' || r.request_type === '取消請假')
                         ? `${r.leave_date}${r.leave_date_end ? ` ～ ${r.leave_date_end}` : ''}　${r.leave_type ?? ''}`
                         : r.courses?.name ?? '—'}
                     </TableCell>
@@ -208,7 +214,10 @@ export default async function LeavesPage({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <ApproveButtons id={r.id} />
+                      <div className="flex flex-col gap-1.5">
+                        <ApproveButtons id={r.id} />
+                        {r.request_type === '請假' && <CancelButton id={r.id} />}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -345,9 +354,14 @@ export default async function LeavesPage({
                       {r.handled_at ? new Date(r.handled_at).toLocaleDateString('zh-TW') : '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={r.status === 'approved' ? 'default' : 'outline'}>
-                        {r.status === 'approved' ? '已核准' : '已退回'}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant={r.status === 'approved' ? 'default' : r.status === 'cancelled' ? 'secondary' : 'outline'}>
+                          {r.status === 'approved' ? '已核准' : r.status === 'cancelled' ? '已取消' : '已退回'}
+                        </Badge>
+                        {r.status === 'approved' && r.request_type === '請假' && (
+                          <CancelButton id={r.id} />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {r.reason ?? '—'}

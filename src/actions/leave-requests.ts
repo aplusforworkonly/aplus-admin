@@ -1,6 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { createServerClient, createSessionClient } from '@/lib/supabase/server';
+import { createAdminTask, resolveTaskBySourceId } from '@/actions/admin-tasks';
 
 function dateRange(start: string, end: string): string[] {
   const dates: string[] = [];
@@ -35,6 +36,9 @@ export async function approveLeaveRequest(id: string) {
     .single();
   if (error || !req) throw new Error('找不到申請');
 
+  const handledBy = await getHandledBy(supabase);
+  const now = new Date().toISOString();
+
   if (req.request_type === '請假') {
     const dates = dateRange(req.leave_date, req.leave_date_end ?? req.leave_date);
     await supabase.from('student_leaves').insert(
@@ -51,13 +55,39 @@ export async function approveLeaveRequest(id: string) {
       .update({ status: '退班' })
       .eq('student_id', req.student_id)
       .eq('course_id', req.course_id);
+  } else if (req.request_type === '取消請假' && req.ref_request_id) {
+    const { data: original } = await supabase
+      .from('leave_requests')
+      .select('student_id, leave_date, leave_date_end, status')
+      .eq('id', req.ref_request_id)
+      .single();
+
+    if (original?.status === 'approved') {
+      await supabase.from('student_leaves').delete()
+        .eq('student_id', original.student_id)
+        .gte('leave_date', original.leave_date)
+        .lte('leave_date', original.leave_date_end ?? original.leave_date);
+    }
+
+    await supabase.from('leave_requests').update({
+      status: 'cancelled',
+      handled_by: handledBy,
+      handled_at: now,
+    }).eq('id', req.ref_request_id);
+
+    await supabase.from('request_audit_log').insert({
+      request_table: 'leave_requests',
+      request_id: req.ref_request_id,
+      from_status: original?.status ?? 'approved',
+      to_status: 'cancelled',
+      handled_by: handledBy,
+    });
   }
 
-  const handledBy = await getHandledBy(supabase);
   await supabase.from('leave_requests').update({
     status: 'approved',
     handled_by: handledBy,
-    handled_at: new Date().toISOString(),
+    handled_at: now,
   }).eq('id', id);
   await supabase.from('request_audit_log').insert({
     request_table: 'leave_requests',
@@ -66,6 +96,8 @@ export async function approveLeaveRequest(id: string) {
     to_status: 'approved',
     handled_by: handledBy,
   });
+  // 審核完成 → 自動結案對應任務（靜默失敗，不影響主流程）
+  await resolveTaskBySourceId(id).catch(() => {});
   revalidatePath('/leaves');
 }
 
@@ -91,7 +123,86 @@ export async function rejectLeaveRequest(id: string) {
     to_status: 'rejected',
     handled_by: handledBy,
   });
+  // 退回也視為處理完成 → 自動結案對應任務
+  await resolveTaskBySourceId(id).catch(() => {});
   revalidatePath('/leaves');
+}
+
+export async function cancelLeaveRequest(id: string) {
+  const supabase = createServerClient();
+
+  const { data: req } = await supabase
+    .from('leave_requests')
+    .select('id, status, student_id, leave_date, leave_date_end')
+    .eq('id', id)
+    .single();
+
+  if (!req || !['pending', 'approved'].includes(req.status)) throw new Error('此申請無法取消');
+
+  if (req.status === 'approved') {
+    await supabase.from('student_leaves').delete()
+      .eq('student_id', req.student_id)
+      .gte('leave_date', req.leave_date)
+      .lte('leave_date', req.leave_date_end ?? req.leave_date);
+  }
+
+  const handledBy = await getHandledBy(supabase);
+  const now = new Date().toISOString();
+
+  await supabase.from('leave_requests').update({
+    status: 'cancelled',
+    handled_by: handledBy,
+    handled_at: now,
+  }).eq('id', id);
+
+  await supabase.from('request_audit_log').insert({
+    request_table: 'leave_requests',
+    request_id: id,
+    from_status: req.status,
+    to_status: 'cancelled',
+    handled_by: handledBy,
+  });
+
+  revalidatePath('/leaves');
+  revalidatePath(`/students/${req.student_id}`);
+}
+
+export async function submitCancellationRequest(
+  refRequestId: string,
+  teacherId: string,
+  reason: string
+) {
+  const supabase = createServerClient();
+
+  const { count } = await supabase
+    .from('leave_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('ref_request_id', refRequestId)
+    .eq('request_type', '取消請假')
+    .eq('status', 'pending');
+  if ((count ?? 0) > 0) throw new Error('已有取消申請審核中，請等待行政處理');
+
+  const { data: original } = await supabase
+    .from('leave_requests')
+    .select('student_id, leave_date, leave_date_end, leave_type')
+    .eq('id', refRequestId)
+    .single();
+  if (!original) throw new Error('找不到原始請假申請');
+
+  const { error } = await supabase.from('leave_requests').insert({
+    request_type: '取消請假',
+    student_id: original.student_id,
+    teacher_id: teacherId,
+    leave_date: original.leave_date,
+    leave_date_end: original.leave_date_end,
+    leave_type: original.leave_type,
+    reason: reason || '家長通知取消請假',
+    ref_request_id: refRequestId,
+    status: 'pending',
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/teacher');
 }
 
 export async function submitParentLeaveRequest(data: {
@@ -122,7 +233,7 @@ export async function submitParentLeaveRequest(data: {
     .single();
   if (!mapping) throw new Error('學生資料不符，請確認後再試。');
 
-  const { error } = await supabase.from('leave_requests').insert({
+  const { data: inserted, error } = await supabase.from('leave_requests').insert({
     request_type: '請假',
     student_id: data.studentId,
     parent_id: parent.id,
@@ -133,8 +244,23 @@ export async function submitParentLeaveRequest(data: {
     note: data.note ?? null,
     disease_type: data.diseaseType ?? null,
     proof_file_url: data.proofFileUrl ?? null,
-  });
+  }).select('id').single();
   if (error) throw new Error(error.message);
+
+  // 建立對應行政任務
+  if (inserted?.id) {
+    const { data: student } = await supabase
+      .from('students').select('name, campus').eq('id', data.studentId).single();
+    await createAdminTask({
+      title: `審核請假申請：${student?.name ?? data.studentId} ${data.leaveDate}`,
+      taskType: 'adhoc',
+      taskSource: 'leave_request',
+      sourceId: inserted.id,
+      campus: student?.campus ? [student.campus] : undefined,
+      priority: 'normal',
+      size: 'S',
+    }).catch(() => {});
+  }
 }
 
 export async function submitLeaveRequest(data: {
@@ -151,7 +277,7 @@ export async function submitLeaveRequest(data: {
   proofFileUrl?: string;
 }) {
   const supabase = createServerClient();
-  const { error } = await supabase.from('leave_requests').insert({
+  const { data: inserted, error } = await supabase.from('leave_requests').insert({
     request_type: data.requestType,
     student_id: data.studentId,
     teacher_id: data.teacherId,
@@ -163,7 +289,24 @@ export async function submitLeaveRequest(data: {
     note: data.note ?? null,
     disease_type: data.diseaseType ?? null,
     proof_file_url: data.proofFileUrl ?? null,
-  });
+  }).select('id').single();
   if (error) throw new Error(error.message);
+
+  // 建立對應行政任務
+  if (inserted?.id) {
+    const { data: student } = await supabase
+      .from('students').select('name, campus').eq('id', data.studentId).single();
+    const typeLabel = data.requestType === '退班' ? '退班申請' : '請假申請';
+    await createAdminTask({
+      title: `審核${typeLabel}：${student?.name ?? data.studentId}${data.leaveDate ? ` ${data.leaveDate}` : ''}`,
+      taskType: 'adhoc',
+      taskSource: 'leave_request',
+      sourceId: inserted.id,
+      campus: student?.campus ? [student.campus] : undefined,
+      priority: 'normal',
+      size: 'S',
+    }).catch(() => {});
+  }
+
   revalidatePath('/teacher');
 }

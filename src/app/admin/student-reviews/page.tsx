@@ -26,7 +26,7 @@ export default async function StudentReviewsPage() {
       .limit(30),
     supabase
       .from('students')
-      .select('id, name, english_name, campus, id_number, status')
+      .select('id, name, english_name, campus, id_number, status, parent_student_mapping(parent_id)')
       .eq('status', '就讀中'),
   ]);
 
@@ -52,22 +52,46 @@ export default async function StudentReviewsPage() {
     }
   }
 
-  // 找出同名同英文名的重複學生群組
+  // Step A：同名同英文名重複群組
   type RawStudent = { id: string; name: string; english_name: string | null; campus: string | null; id_number: string | null };
   const students = (allStudents ?? []) as RawStudent[];
 
-  const groups = new Map<string, RawStudent[]>();
+  const nameGroupsMap = new Map<string, RawStudent[]>();
   for (const s of students) {
     if (!s.english_name) continue;
     const key = `${s.name}||${s.english_name}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(s);
+    if (!nameGroupsMap.has(key)) nameGroupsMap.set(key, []);
+    nameGroupsMap.get(key)!.push(s);
   }
-  const rawDuplicates = [...groups.values()].filter((g) => g.length > 1);
+  const rawNameDuplicates = [...nameGroupsMap.values()].filter((g) => g.length > 1);
 
-  // 額外查詢重複學生的家長與課程資料
-  const dupIds = rawDuplicates.flat().map((s) => s.id);
+  // Step B：同家長同英文名（不同中文名）群組，利用嵌入關聯取得 parent_id
+  const studentById = new Map(students.map((s) => [s.id, s]));
+  const parentEnGroupsMap = new Map<string, string[]>();
+  for (const s of students) {
+    if (!s.english_name) continue;
+    for (const m of ((s as any).parent_student_mapping ?? [])) {
+      const key = `${m.parent_id}||${s.english_name}`;
+      if (!parentEnGroupsMap.has(key)) parentEnGroupsMap.set(key, []);
+      parentEnGroupsMap.get(key)!.push(s.id);
+    }
+  }
+  const sameParentDuplicates: RawStudent[][] = [...parentEnGroupsMap.values()]
+    .filter((ids) => {
+      if (ids.length < 2) return false;
+      // 相異中文名數量 > 1 → 疑似填錯名字
+      const nameSet = new Set(ids.map((id) => studentById.get(id)?.name ?? ''));
+      return nameSet.size > 1;
+    })
+    .map((ids) => ids.map((id) => studentById.get(id)!).filter(Boolean) as RawStudent[]);
 
+  // Step C：合併所有 dupIds，一次批次查詢
+  const dupIds = [...new Set([
+    ...rawNameDuplicates.flat().map((s) => s.id),
+    ...sameParentDuplicates.flat().map((s) => s.id),
+  ])];
+
+  // Step D：一次批次查詢家長資料與課程
   const [{ data: mappings }, { data: dupEnrollments }] = dupIds.length > 0
     ? await Promise.all([
         supabase
@@ -101,8 +125,8 @@ export default async function StudentReviewsPage() {
     courseMap[sid].push(c.name);
   }
 
-  const duplicateGroups: DuplicateGroup[] = rawDuplicates.map((group) =>
-    group.map((s) => ({
+  function toGroup(rawGroup: RawStudent[]): DuplicateGroup {
+    return rawGroup.map((s) => ({
       id: s.id,
       name: s.name,
       english_name: s.english_name,
@@ -110,16 +134,32 @@ export default async function StudentReviewsPage() {
       id_number: s.id_number,
       parents: parentMap[s.id] ?? [],
       courses: courseMap[s.id] ?? [],
-    }))
-  );
+    }));
+  }
+
+  const duplicateGroups: DuplicateGroup[] = rawNameDuplicates.map(toGroup);
+  const sameParentGroups: DuplicateGroup[] = sameParentDuplicates.map(toGroup);
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">學生資料審核</h1>
 
-      {/* 重複學生警示 */}
+      {/* 同名同英文名重複警示 */}
       {duplicateGroups.length > 0 && (
         <DuplicateStudentAlert groups={duplicateGroups} />
+      )}
+
+      {/* 同家長疑似重複建檔（不同中文名、同英文名） */}
+      {sameParentGroups.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-base font-semibold text-amber-700">同家長疑似重複建檔</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              以下學生由同一家長連結、英文名相同但中文名不同，可能是報名表填錯姓名所致。
+            </p>
+          </div>
+          <DuplicateStudentAlert groups={sameParentGroups} />
+        </div>
       )}
 
       {/* 姓名填寫錯誤核對 */}

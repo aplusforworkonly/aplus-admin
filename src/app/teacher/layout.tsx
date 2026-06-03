@@ -10,14 +10,16 @@ export default async function TeacherLayout({
   children: React.ReactNode;
 }) {
   let rosteringTabs: string[] = [];
+  let isAcademic = false;
 
   try {
     const session = await createSessionClient();
     const { data: { user } } = await session.auth.getUser();
     if (user) {
       const supabase = createServerClient();
-      const teacher = await getTeacherByUser(supabase, user.id, user.email, 'id');
+      const teacher = await getTeacherByUser(supabase, user.id, user.email, 'id, department');
       if (teacher) {
+        isAcademic = (teacher as any).department === '學務部';
         const { data: perms } = await supabase
           .from('rostering_permissions')
           .select('tab_key')
@@ -34,7 +36,7 @@ export default async function TeacherLayout({
       <TeacherTopBar />
       {children}
       <Suspense fallback={null}>
-        <TeacherBottomNav rosteringTabs={rosteringTabs} />
+        <TeacherBottomNav rosteringTabs={rosteringTabs} isAcademic={isAcademic} />
       </Suspense>
     </div>
   );

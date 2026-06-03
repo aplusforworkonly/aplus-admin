@@ -1,6 +1,7 @@
 'use server';
 import { createServerClient, createSessionClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { createAdminTask, resolveTaskBySourceId } from '@/actions/admin-tasks';
 
 async function getHandledBy(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
   try {
@@ -48,7 +49,14 @@ export async function submitCancelRequest(data: {
   requestType: 'cancel' | 'add' | 'purchase' | 'departure';
 }) {
   const supabase = createServerClient();
-  const { error } = await supabase.from('student_requests').insert({
+  const requestTypeLabels: Record<string, string> = {
+    cancel: '取消課程',
+    add: '加報課程',
+    purchase: '物品購買',
+    departure: '離校通知',
+  };
+
+  const { data: inserted, error } = await supabase.from('student_requests').insert({
     teacher_id: data.teacherId,
     student_id: data.studentId,
     course_id: data.courseId || null,
@@ -57,8 +65,25 @@ export async function submitCancelRequest(data: {
     request_type: data.requestType,
     enrollment_id: data.enrollmentId || null,
     start_date: data.startDate || null,
-  });
+  }).select('id').single();
   if (error) throw new Error(error.message);
+
+  // 建立對應行政任務
+  if (inserted?.id) {
+    const { data: student } = await supabase
+      .from('students').select('name, campus').eq('id', data.studentId).single();
+    const label = requestTypeLabels[data.requestType] ?? data.requestType;
+    await createAdminTask({
+      title: `審核${label}：${student?.name ?? data.studentId}`,
+      taskType: 'adhoc',
+      taskSource: 'student_request',
+      sourceId: inserted.id,
+      campus: student?.campus ? [student.campus] : undefined,
+      priority: data.requestType === 'departure' ? 'urgent' : 'normal',
+      size: 'S',
+    }).catch(() => {});
+  }
+
   revalidatePath('/teacher');
 }
 
@@ -210,6 +235,8 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
     to_status: 'approved',
     handled_by: handledBy,
   });
+  // 審核完成 → 自動結案對應任務
+  await resolveTaskBySourceId(id).catch(() => {});
   revalidatePath('/admin/requests');
   revalidatePath('/admin/classes');
   revalidatePath('/enrollments');
@@ -237,5 +264,7 @@ export async function rejectCancelRequest(id: string) {
     to_status: 'rejected',
     handled_by: handledBy,
   });
+  // 退回也視為處理完成 → 自動結案對應任務
+  await resolveTaskBySourceId(id).catch(() => {});
   revalidatePath('/admin/requests');
 }

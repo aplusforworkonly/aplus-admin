@@ -56,8 +56,7 @@ export default async function TeacherPage(props: {
 
   const isViewingOther = targetTeacher.id !== selfTeacher.id;
 
-  const [{ data: studentsList }, { data: coursesList }, { data: cancelList }, { data: leaveList }] = await Promise.all([
-    supabase
+  const [{ data: studentsList }, { data: coursesList }, { data: cancelList }, { data: leaveList }] = await Promise.all([    supabase
       .from('students')
       .select('id, name, english_name')
       .eq('main_tutor_id', targetTeacher.id)
@@ -80,6 +79,24 @@ export default async function TeacherPage(props: {
       .eq('teacher_id', targetTeacher.id)
       .order('created_at', { ascending: false }),
   ]);
+
+  // 找出哪些請假申請已有 pending 中的取消申請（防重複送單）
+  const plainLeaveIds = (leaveList ?? [])
+    .filter((r: any) => r.request_type === '請假')
+    .map((r: any) => r.id as string);
+
+  let cancellingIds = new Set<string>();
+  if (plainLeaveIds.length > 0) {
+    const { data: pendingCancellations } = await supabase
+      .from('leave_requests')
+      .select('ref_request_id')
+      .in('ref_request_id', plainLeaveIds)
+      .eq('request_type', '取消請假')
+      .eq('status', 'pending');
+    cancellingIds = new Set(
+      (pendingCancellations ?? []).map((r: any) => r.ref_request_id as string).filter(Boolean)
+    );
+  }
 
   const students = (studentsList ?? []) as { id: string; name: string; english_name?: string | null }[];
   const courses = (coursesList ?? []) as { id: string; name: string; max_capacity?: number | null }[];
@@ -157,16 +174,17 @@ export default async function TeacherPage(props: {
   });
 
   const leaveRequests = (leaveList ?? []).map((r: any) => {
-    const dateRange = r.leave_date_end && r.leave_date_end !== r.leave_date
+    const dr = r.leave_date_end && r.leave_date_end !== r.leave_date
       ? `${r.leave_date} ～ ${r.leave_date_end}`
       : (r.leave_date ?? '');
     return {
       id: `leave-${r.id}`,
-      type: '請假' as const,
-      status: r.status,
+      rawLeaveId: r.id as string,
+      type: (r.request_type === '取消請假' ? '取消請假' : '請假') as '請假' | '取消請假',
+      status: r.status as string,
       studentName: r.students?.name ?? '—',
       studentEnglishName: r.students?.english_name ?? null,
-      detail: [dateRange, r.leave_type].filter(Boolean).join('　') || null,
+      detail: [dr, r.leave_type].filter(Boolean).join('　') || null,
       reason: r.reason ?? r.note ?? '',
       created_at: r.created_at,
     };
@@ -250,7 +268,12 @@ export default async function TeacherPage(props: {
         <h3 className="text-xl font-bold text-foreground">
           {isViewingOther ? `${targetTeacher.name} 老師的申請紀錄` : '我的申請與處理進度'}
         </h3>
-        <TeacherRequestHistory requests={requests} />
+        <TeacherRequestHistory
+          requests={requests}
+          teacherId={selfTeacher.id}
+          cancellingIds={cancellingIds}
+          canCancel={!isViewingOther}
+        />
       </div>
     </main>
   );

@@ -20,3 +20,10 @@ export function getGrade(enrollmentDate: string): string {
   const grade = currentTWYear() - enrollTWYear + 1;
   return GRADE_LABELS[grade] ?? (grade > 6 ? '已畢業' : '大班升小一');
 }
+
+// 回傳年級數字（0=大班升小一, 1-6=小一到小六），供路由規則比對使用
+export function getGradeNumber(enrollmentDate: string): number {
+  const d = new Date(enrollmentDate);
+  const enrollTWYear = d.getFullYear() - 1911 - (d.getMonth() < 8 ? 1 : 0);
+  return currentTWYear() - enrollTWYear + 1;
+}

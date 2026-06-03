@@ -9,7 +9,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { updateEnrollmentStatus, approveAllPending } from '@/actions/enrollments';
+import { updateEnrollmentStatus, approveAllPending, deleteAllPendingDuplicates } from '@/actions/enrollments';
 import type { EnrollmentStatus, CampusType } from '@/lib/supabase/types';
 
 type EnrollmentRow = {
@@ -84,6 +84,10 @@ export default function EnrollmentTable({
     startTransition(() => approveAllPending());
   }
 
+  function handleDeleteDuplicates() {
+    startTransition(async () => { await deleteAllPendingDuplicates(); });
+  }
+
   const filtered = enrollments.filter((e) => {
     const matchSearch =
       !search ||
@@ -119,15 +123,26 @@ export default function EnrollmentTable({
           ))}
         </div>
         {pendingCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={handleApproveAll}
-            className="text-teal-700 border-teal-300 hover:bg-teal-50"
-          >
-            {pending ? '處理中…' : `全部轉生效（${pendingCount} 筆）`}
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={handleApproveAll}
+              className="text-teal-700 border-teal-300 hover:bg-teal-50"
+            >
+              {pending ? '處理中…' : `全部轉生效（${pendingCount} 筆）`}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={handleDeleteDuplicates}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              {pending ? '處理中…' : '刪除重複待審核'}
+            </Button>
+          </>
         )}
         <div className="flex gap-1">
           {(['all', '文府總校', '龍華校', '左新校'] as const).map((c) => (

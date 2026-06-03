@@ -1,10 +1,12 @@
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import CancellationRequestButton from '@/components/teacher/CancellationRequestButton';
 
 type RequestEntry = {
   id: string;
-  type: '取消課程' | '加報課程' | '請假';
+  rawLeaveId?: string;
+  type: '取消課程' | '加報課程' | '請假' | '取消請假';
   status: string;
   studentName: string;
   studentEnglishName?: string | null;
@@ -34,6 +36,13 @@ function StatusBadge({ status }: { status: string }) {
       </span>
     );
   }
+  if (status === 'cancelled') {
+    return (
+      <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+        已取消
+      </span>
+    );
+  }
   return (
     <span className="text-xs px-2 py-0.5 rounded-full border bg-gray-100 text-gray-500 border-gray-200">
       已退回
@@ -45,9 +54,41 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
   取消課程: { label: '取消', cls: 'bg-red-50 text-red-700 border-red-200' },
   加報課程: { label: '加報', cls: 'bg-green-50 text-green-700 border-green-200' },
   請假:     { label: '請假', cls: 'bg-orange-50 text-orange-700 border-orange-200' },
+  取消請假: { label: '取消請假', cls: 'bg-slate-100 text-slate-600 border-slate-300' },
 };
 
-function RequestTable({ rows }: { rows: RequestEntry[] }) {
+function CancelAction({
+  row,
+  teacherId,
+  cancellingIds,
+  canCancel,
+}: {
+  row: RequestEntry;
+  teacherId: string;
+  cancellingIds: Set<string>;
+  canCancel: boolean;
+}) {
+  if (!canCancel || !row.rawLeaveId || row.type !== '請假') return null;
+  if (row.status !== 'pending' && row.status !== 'approved') return null;
+
+  if (cancellingIds.has(row.rawLeaveId)) {
+    return <span className="text-xs text-muted-foreground">取消審核中</span>;
+  }
+
+  return <CancellationRequestButton refRequestId={row.rawLeaveId} teacherId={teacherId} />;
+}
+
+function RequestTable({
+  rows,
+  teacherId,
+  cancellingIds,
+  canCancel,
+}: {
+  rows: RequestEntry[];
+  teacherId: string;
+  cancellingIds: Set<string>;
+  canCancel: boolean;
+}) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground py-3">尚無紀錄。</p>;
   }
@@ -75,6 +116,7 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
                 {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
                 {r.reason && <p className="text-sm text-slate-700 bg-slate-50/50 p-2.5 rounded-md border border-slate-100">{r.reason}</p>}
                 <p className="text-xs text-slate-400 font-mono mt-1">{formatDate(r.created_at)}</p>
+                <CancelAction row={r} teacherId={teacherId} cancellingIds={cancellingIds} canCancel={canCancel} />
               </div>
             </div>
           );
@@ -87,10 +129,11 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-36">申請日期</TableHead>
-              <TableHead className="w-14">類型</TableHead>
+              <TableHead className="w-20">類型</TableHead>
               <TableHead>學生 / 詳情</TableHead>
               <TableHead>原因</TableHead>
               <TableHead className="w-20 text-right">狀態</TableHead>
+              <TableHead className="w-28"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -121,6 +164,9 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
                   <TableCell className="text-right">
                     <StatusBadge status={r.status} />
                   </TableCell>
+                  <TableCell>
+                    <CancelAction row={r} teacherId={teacherId} cancellingIds={cancellingIds} canCancel={canCancel} />
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -131,8 +177,18 @@ function RequestTable({ rows }: { rows: RequestEntry[] }) {
   );
 }
 
-export default function TeacherRequestHistory({ requests }: { requests: RequestEntry[] }) {
-  const leaveRequests = requests.filter((r) => r.type === '請假');
+export default function TeacherRequestHistory({
+  requests,
+  teacherId,
+  cancellingIds,
+  canCancel,
+}: {
+  requests: RequestEntry[];
+  teacherId: string;
+  cancellingIds: Set<string>;
+  canCancel: boolean;
+}) {
+  const leaveRequests = requests.filter((r) => r.type === '請假' || r.type === '取消請假');
   const courseRequests = requests.filter((r) => r.type === '取消課程' || r.type === '加報課程');
 
   if (requests.length === 0) {
@@ -147,11 +203,11 @@ export default function TeacherRequestHistory({ requests }: { requests: RequestE
     <div className="space-y-6">
       <div className="space-y-2">
         <p className="text-sm font-medium">請假通報</p>
-        <RequestTable rows={leaveRequests} />
+        <RequestTable rows={leaveRequests} teacherId={teacherId} cancellingIds={cancellingIds} canCancel={canCancel} />
       </div>
       <div className="space-y-2">
         <p className="text-sm font-medium">課程異動申請</p>
-        <RequestTable rows={courseRequests} />
+        <RequestTable rows={courseRequests} teacherId={teacherId} cancellingIds={cancellingIds} canCancel={canCancel} />
       </div>
     </div>
   );

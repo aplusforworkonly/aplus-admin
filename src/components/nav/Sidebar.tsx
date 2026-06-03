@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
-type CountKey = 'leaves' | 'requests' | 'studentReviews';
+type CountKey = 'leaves' | 'requests' | 'studentReviews' | 'adminTasks';
 
 type Child = {
   href: string;
@@ -43,6 +43,8 @@ const groups: Group[] = [
   {
     label: '行政專區',
     children: [
+      { href: '/admin/tasks', label: '任務管理', countKey: 'adminTasks' },
+      { href: '/admin/task-routing', label: '指派規則設定' },
       { href: '/invoices', label: '帳單管理' },
       { href: '/leaves', label: '請假審核', countKey: 'leaves', exact: true },
       { href: '/admin/requests', label: '課程異動審核', countKey: 'requests' },
@@ -55,16 +57,19 @@ export default function Sidebar({
   leavesCount = 0,
   requestsCount = 0,
   studentReviewsCount = 0,
+  adminTasksCount = 0,
 }: {
   leavesCount?: number;
   requestsCount?: number;
   studentReviewsCount?: number;
+  adminTasksCount?: number;
 }) {
   const pathname = usePathname();
   const counts: Record<CountKey, number> = {
     leaves: leavesCount,
     requests: requestsCount,
     studentReviews: studentReviewsCount,
+    adminTasks: adminTasksCount,
   };
 
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -162,6 +167,12 @@ export default function Sidebar({
           className="block px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
         >
           老師入口
+        </Link>
+        <Link
+          href="/teacher/tasks"
+          className="block px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted transition-colors"
+        >
+          任務管理入口
         </Link>
         <Link
           href="/parent-leave"

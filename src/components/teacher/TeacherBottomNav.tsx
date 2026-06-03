@@ -1,10 +1,10 @@
 'use client';
-import { CalendarRange, BookOpenText, Users, ShoppingBag, LogOut, ClipboardList } from 'lucide-react';
+import { CalendarRange, BookOpenText, Users, ShoppingBag, LogOut, ClipboardList, Calendar, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export default function TeacherBottomNav({ rosteringTabs = [] }: { rosteringTabs?: string[] }) {
+export default function TeacherBottomNav({ rosteringTabs = [], isAcademic = false }: { rosteringTabs?: string[]; isAcademic?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'leave');
@@ -66,12 +66,26 @@ export default function TeacherBottomNav({ rosteringTabs = [] }: { rosteringTabs
       icon: Users,
       isActive: pathname === '/teacher/students',
     },
+    {
+      id: 'calendar',
+      label: '請假日曆',
+      href: withView('/teacher/calendar'),
+      icon: Calendar,
+      isActive: pathname === '/teacher/calendar',
+    },
     ...(rosteringTabs.length > 0 ? [{
       id: 'rostering',
       label: '分班管理',
       href: `/teacher/rostering?tab=${rosteringTabs[0]}`,
       icon: ClipboardList,
       isActive: pathname === '/teacher/rostering',
+    }] : []),
+    ...(isAcademic ? [{
+      id: 'tasks',
+      label: '我的任務',
+      href: '/teacher/tasks',
+      icon: CheckSquare,
+      isActive: pathname.startsWith('/teacher/tasks'),
     }] : []),
   ];
 
@@ -85,7 +99,7 @@ export default function TeacherBottomNav({ rosteringTabs = [] }: { rosteringTabs
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center py-2 bg-white border-t border-slate-200 z-50">
+    <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center py-1.5 bg-white border-t border-slate-200 z-50">
       {navItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -93,10 +107,10 @@ export default function TeacherBottomNav({ rosteringTabs = [] }: { rosteringTabs
             key={item.label}
             href={item.href}
             onClick={(e) => handleNavClick(e, item)}
-            className={`flex flex-col items-center justify-center p-1.5 rounded-xl transition-all ${
+            className={`flex flex-col items-center justify-center p-1 rounded-xl transition-all ${
               item.isActive
-                ? 'bg-primary/10 text-primary scale-100 font-semibold px-2'
-                : 'text-muted-foreground hover:bg-slate-50 scale-95 font-medium'
+                ? 'bg-primary/10 text-primary font-semibold'
+                : 'text-muted-foreground hover:bg-slate-50 font-medium'
             }`}
           >
             <Icon className="w-5 h-5 mb-0.5" />

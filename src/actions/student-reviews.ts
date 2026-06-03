@@ -1,6 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { createServerClient, createSessionClient } from '@/lib/supabase/server';
+import { resolveTaskBySourceId } from '@/actions/admin-tasks';
 
 async function getHandledBy(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
   try {
@@ -52,7 +53,8 @@ export async function approveStudentReview(id: string) {
     to_status: 'approved',
     handled_by: handledBy,
   });
-
+  // 審核完成 → 自動結案對應任務
+  await resolveTaskBySourceId(id).catch(() => {});
   revalidatePath('/admin/student-reviews');
 }
 
@@ -77,7 +79,8 @@ export async function rejectStudentReview(id: string) {
     to_status: 'rejected',
     handled_by: handledBy,
   });
-
+  // 退回也視為處理完成 → 自動結案對應任務
+  await resolveTaskBySourceId(id).catch(() => {});
   revalidatePath('/admin/student-reviews');
 }
 
