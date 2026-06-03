@@ -59,83 +59,85 @@ export default function LeaveCalendarGrid({
   const { firstDayOfWeek, daysInMonth, totalCells } = buildGridDates(y, m);
 
   return (
-    <div className="border rounded-lg overflow-hidden">
-      {/* 星期標頭 */}
-      <div className="grid grid-cols-7 border-b bg-muted/40">
-        {WEEKDAYS.map((wd, i) => (
-          <div
-            key={wd}
-            className={`py-2 text-center text-xs font-medium ${
-              i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-muted-foreground'
-            }`}
-          >
-            {wd}
-          </div>
-        ))}
-      </div>
-
-      {/* 日期格子 */}
-      <div className="grid grid-cols-7">
-        {Array.from({ length: totalCells }, (_, i) => {
-          const dayNum = i - firstDayOfWeek + 1;
-          const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
-          const dateStr = isCurrentMonth
-            ? `${currentMonth}-${String(dayNum).padStart(2, '0')}`
-            : null;
-          const dayLeaves = dateStr ? (leavesByDate[dateStr] ?? []) : [];
-          const isToday = dateStr === todayStr;
-          const col = i % 7;
-
-          return (
+    <div className="overflow-x-auto">
+      <div className="border rounded-lg overflow-hidden min-w-[560px]">
+        {/* 星期標頭 */}
+        <div className="grid grid-cols-7 border-b bg-muted/40">
+          {WEEKDAYS.map((wd, i) => (
             <div
-              key={i}
-              className={`min-h-24 p-1.5 border-b border-r last:border-r-0 ${
-                !isCurrentMonth ? 'bg-muted/20' : ''
-              } ${isToday ? 'bg-blue-50/60' : ''}`}
+              key={wd}
+              className={`py-2 text-center text-xs font-medium ${
+                i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-muted-foreground'
+              }`}
             >
-              {isCurrentMonth && (
-                <>
-                  <div
-                    className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday
-                        ? 'bg-primary text-primary-foreground'
-                        : col === 0
-                        ? 'text-red-500'
-                        : col === 6
-                        ? 'text-blue-500'
-                        : 'text-foreground'
-                    }`}
-                  >
-                    {dayNum}
-                  </div>
-                  <div className="space-y-1">
-                    {dayLeaves.map((l) => (
-                      <div key={l.id} className="leading-tight">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs">{l.students?.name}</span>
-                          {l.leave_type && (
-                            <span
-                              className={`text-[10px] px-1 py-0 rounded border leading-4 shrink-0 ${
-                                LEAVE_TYPE_COLOR[l.leave_type] ?? ''
-                              }`}
-                            >
-                              {l.leave_type}
-                            </span>
+              {wd}
+            </div>
+          ))}
+        </div>
+
+        {/* 日期格子 */}
+        <div className="grid grid-cols-7">
+          {Array.from({ length: totalCells }, (_, i) => {
+            const dayNum = i - firstDayOfWeek + 1;
+            const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
+            const dateStr = isCurrentMonth
+              ? `${currentMonth}-${String(dayNum).padStart(2, '0')}`
+              : null;
+            const dayLeaves = dateStr ? (leavesByDate[dateStr] ?? []) : [];
+            const isToday = dateStr === todayStr;
+            const col = i % 7;
+
+            return (
+              <div
+                key={i}
+                className={`h-32 sm:h-40 p-1 sm:p-1.5 border-b border-r last:border-r-0 flex flex-col ${
+                  !isCurrentMonth ? 'bg-muted/20' : ''
+                } ${isToday ? 'bg-blue-50/60' : ''}`}
+              >
+                {isCurrentMonth && (
+                  <>
+                    <div
+                      className={`text-xs font-medium mb-0.5 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full shrink-0 ${
+                        isToday
+                          ? 'bg-primary text-primary-foreground'
+                          : col === 0
+                          ? 'text-red-500'
+                          : col === 6
+                          ? 'text-blue-500'
+                          : 'text-foreground'
+                      }`}
+                    >
+                      {dayNum}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-1 gap-y-0 sm:gap-y-0.5 overflow-y-auto flex-1 min-h-0 pr-0.5">
+                      {dayLeaves.map((l) => (
+                        <div key={l.id} className="leading-tight min-w-0">
+                          <div className="flex items-center gap-0.5 min-w-0">
+                            <span className="text-[10px] sm:text-xs truncate">{l.students?.name}</span>
+                            {l.leave_type && (
+                              <span
+                                className={`hidden sm:inline text-[10px] px-1 py-0 rounded border leading-4 shrink-0 ${
+                                  LEAVE_TYPE_COLOR[l.leave_type] ?? ''
+                                }`}
+                              >
+                                {l.leave_type}
+                              </span>
+                            )}
+                          </div>
+                          {l.students?.english_name && (
+                            <div className="hidden sm:block text-[10px] text-muted-foreground truncate">
+                              {l.students.english_name}
+                            </div>
                           )}
                         </div>
-                        {l.students?.english_name && (
-                          <div className="text-[10px] text-muted-foreground">
-                            {l.students.english_name}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
