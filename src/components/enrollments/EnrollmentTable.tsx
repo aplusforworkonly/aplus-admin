@@ -1,5 +1,6 @@
 'use client';
 import { useState, useTransition } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,28 +26,20 @@ type EnrollmentRow = {
 };
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  生效: 'default',
-  候補: 'outline',
-  退班: 'destructive',
-  已結業: 'secondary',
-  待審核: 'secondary',
+  生效: 'default', 候補: 'outline', 退班: 'destructive', 已結業: 'secondary', 待審核: 'secondary',
 };
 
 const NEXT_STATUS: Partial<Record<EnrollmentStatus, EnrollmentStatus>> = {
-  待審核: '生效',
-  候補: '生效',
-  生效: '退班',
+  待審核: '生效', 候補: '生效', 生效: '退班',
 };
 
 const NEXT_LABEL: Partial<Record<EnrollmentStatus, string>> = {
-  待審核: '轉生效',
-  候補: '轉生效',
-  生效: '退班',
+  待審核: '轉生效', 候補: '轉生效', 生效: '退班',
 };
 
-function FilterBtn({
-  active, onClick, children,
-}: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+const DEFAULT_STATUS = '生效,待審核,候補';
+
+function FilterBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
@@ -67,26 +60,43 @@ export default function EnrollmentTable({
   enrollments,
   classes = [],
   classStudentIds = {},
+  totalCount,
+  currentPage,
+  pageSize,
 }: {
   enrollments: EnrollmentRow[];
   classes?: { id: string; label: string }[];
   classStudentIds?: Record<string, string[]>;
+  totalCount: number;
+  currentPage: number;
+  pageSize: number;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | EnrollmentStatus>('all');
-  const [campusFilter, setCampusFilter] = useState<'all' | CampusType>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
   const [pending, startTransition] = useTransition();
 
+  const statusParam = searchParams.get('status') ?? DEFAULT_STATUS;
+  const campusParam = searchParams.get('campus') ?? 'all';
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  function navigate(updates: Record<string, string | null>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    }
+    if (!('page' in updates)) params.set('page', '1');
+    startTransition(() => router.push(`${pathname}?${params.toString()}`));
+  }
+
+  function handleStatusChange(id: string, next: EnrollmentStatus) {
+    startTransition(() => updateEnrollmentStatus(id, next));
+  }
+
   const pendingCount = enrollments.filter((e) => e.status === '待審核').length;
-
-  function handleApproveAll() {
-    startTransition(() => approveAllPending());
-  }
-
-  function handleDeleteDuplicates() {
-    startTransition(async () => { await deleteAllPendingDuplicates(); });
-  }
 
   const filtered = enrollments.filter((e) => {
     const matchSearch =
@@ -94,17 +104,11 @@ export default function EnrollmentTable({
       e.students?.name?.includes(search) ||
       e.contract_no.includes(search) ||
       e.courses?.name?.includes(search);
-    const matchStatus = statusFilter === 'all' || e.status === statusFilter;
-    const matchCampus = campusFilter === 'all' || e.campus === campusFilter;
     const matchClass =
       classFilter === 'all' ||
       (classStudentIds[classFilter]?.includes(e.student_id) ?? false);
-    return matchSearch && matchStatus && matchCampus && matchClass;
+    return matchSearch && matchClass;
   });
-
-  function handleStatusChange(id: string, next: EnrollmentStatus) {
-    startTransition(() => updateEnrollmentStatus(id, next));
-  }
 
   return (
     <div className="space-y-3">
@@ -115,42 +119,42 @@ export default function EnrollmentTable({
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
-        <div className="flex gap-1">
-          {(['all', '待審核', '生效', '候補', '退班', '已結業'] as const).map((s) => (
-            <FilterBtn key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
-              {s === 'all' ? '全部' : s}
+
+        <div className="flex gap-1 flex-wrap">
+          {([
+            { value: DEFAULT_STATUS, label: '進行中' },
+            { value: '待審核', label: '待審核' },
+            { value: '生效', label: '生效' },
+            { value: '候補', label: '候補' },
+            { value: '退班', label: '退班' },
+            { value: '已結業', label: '已結業' },
+            { value: 'all', label: '全部' },
+          ] as const).map(({ value, label }) => (
+            <FilterBtn key={value} active={statusParam === value} onClick={() => navigate({ status: value })}>
+              {label}
             </FilterBtn>
           ))}
         </div>
+
         {pendingCount > 0 && (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={handleApproveAll}
-              className="text-teal-700 border-teal-300 hover:bg-teal-50"
-            >
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => startTransition(() => approveAllPending())} className="text-teal-700 border-teal-300 hover:bg-teal-50">
               {pending ? '處理中…' : `全部轉生效（${pendingCount} 筆）`}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={handleDeleteDuplicates}
-              className="text-red-600 border-red-300 hover:bg-red-50"
-            >
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => startTransition(async () => { await deleteAllPendingDuplicates(); })} className="text-red-600 border-red-300 hover:bg-red-50">
               {pending ? '處理中…' : '刪除重複待審核'}
             </Button>
           </>
         )}
+
         <div className="flex gap-1">
           {(['all', '文府總校', '龍華校', '左新校'] as const).map((c) => (
-            <FilterBtn key={c} active={campusFilter === c} onClick={() => setCampusFilter(c)}>
+            <FilterBtn key={c} active={campusParam === c} onClick={() => navigate({ campus: c })}>
               {c === 'all' ? '全部校區' : c}
             </FilterBtn>
           ))}
         </div>
+
         {classes.length > 0 && (
           <Select value={classFilter} onValueChange={(v) => setClassFilter(v ?? 'all')}>
             <SelectTrigger className="h-8 w-44 text-xs">
@@ -164,8 +168,10 @@ export default function EnrollmentTable({
             </SelectContent>
           </Select>
         )}
-        <span className="text-sm text-muted-foreground ml-auto">{filtered.length} 筆</span>
+
+        <span className="text-sm text-muted-foreground ml-auto">{filtered.length} / {totalCount} 筆</span>
       </div>
+
       <Table className="table-fixed">
         <TableHeader>
           <TableRow>
@@ -208,12 +214,7 @@ export default function EnrollmentTable({
                 <TableCell>
                   <div className="flex gap-1">
                     {next && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={pending}
-                        onClick={() => handleStatusChange(e.id, next)}
-                      >
+                      <Button variant="outline" size="sm" disabled={pending} onClick={() => handleStatusChange(e.id, next)}>
                         {NEXT_LABEL[e.status]}
                       </Button>
                     )}
@@ -224,6 +225,28 @@ export default function EnrollmentTable({
           })}
         </TableBody>
       </Table>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage <= 1 || pending}
+            onClick={() => navigate({ page: String(currentPage - 1) })}
+          >
+            上一頁
+          </Button>
+          <span className="text-sm text-muted-foreground">第 {currentPage} / {totalPages} 頁</span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage >= totalPages || pending}
+            onClick={() => navigate({ page: String(currentPage + 1) })}
+          >
+            下一頁
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
