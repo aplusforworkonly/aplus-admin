@@ -263,6 +263,32 @@ export async function submitParentLeaveRequest(data: {
   }
 }
 
+export async function getStudentCancellableLeaves(studentId: string) {
+  const supabase = createServerClient();
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  const limitDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const { data, error } = await supabase
+    .from('leave_requests')
+    .select('id, leave_date, leave_date_end, leave_type, reason, status')
+    .eq('student_id', studentId)
+    .eq('request_type', '請假')
+    .in('status', ['pending', 'approved'])
+    .gte('leave_date', limitDate)
+    .order('leave_date', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as {
+    id: string;
+    leave_date: string;
+    leave_date_end: string | null;
+    leave_type: string | null;
+    reason: string | null;
+    status: string;
+  }[];
+}
+
 export async function submitLeaveRequest(data: {
   teacherId: string;
   studentId: string;

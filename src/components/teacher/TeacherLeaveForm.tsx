@@ -2,7 +2,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { submitLeaveRequest } from '@/actions/leave-requests';
+import { submitLeaveRequest, submitCancellationRequest, getStudentCancellableLeaves } from '@/actions/leave-requests';
 import { submitCancelRequest, getStudentEnrollments, type StudentEnrollment } from '@/actions/cancel-requests';
 import { uploadMedicalProof } from '@/actions/upload';
 
@@ -25,13 +25,23 @@ const TIME_OPTIONS = [
   '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'
 ];
 
+type CancellableLeave = {
+  id: string;
+  leave_date: string;
+  leave_date_end: string | null;
+  leave_type: string | null;
+  reason: string | null;
+  status: string;
+};
+
 interface TeacherLeaveFormProps {
   teacherId: string;
   students: Student[];
   courses: Course[];
   courseMonths: Record<string, number[]>;
   courseCapacity?: Record<string, { enrolled: number; max: number }>;
-  defaultTab?: 'leave' | 'course' | 'purchase' | 'departure';
+  defaultTab?: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel';
+  cancellingIds?: Set<string>;
 }
 
 export default function TeacherLeaveForm({
@@ -41,8 +51,9 @@ export default function TeacherLeaveForm({
   courseMonths,
   courseCapacity,
   defaultTab = 'leave',
+  cancellingIds = new Set(),
 }: TeacherLeaveFormProps) {
-  const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure'>(defaultTab);
+  const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure' | 'cancel'>(defaultTab);
 
   useEffect(() => {
     setRequestType(defaultTab);
@@ -56,6 +67,20 @@ export default function TeacherLeaveForm({
     window.addEventListener('teacherTabChange', handleTabChange);
     return () => window.removeEventListener('teacherTabChange', handleTabChange);
   }, []);
+
+  // 防呆：切換 tab 時立即清空取消請假選取狀態，避免舊資料殘留
+  useEffect(() => {
+    setSelectedCancelLeaveId(null);
+    setCancelReason('');
+    setCancellableLeaves([]);
+    if (requestType === 'cancel' && studentId) {
+      startCancelLeavesTransition(async () => {
+        const result = await getStudentCancellableLeaves(studentId);
+        setCancellableLeaves(result);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestType]);
 
   const [courseAction, setCourseAction] = useState<'cancel' | 'add'>('cancel');
 
@@ -81,6 +106,12 @@ export default function TeacherLeaveForm({
   const [studentEnrollments, setStudentEnrollments] = useState<StudentEnrollment[]>([]);
   const [enrollmentLoading, startEnrollmentTransition] = useTransition();
 
+  // 取消請假專用
+  const [cancellableLeaves, setCancellableLeaves] = useState<CancellableLeave[]>([]);
+  const [selectedCancelLeaveId, setSelectedCancelLeaveId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelLeavesLoading, startCancelLeavesTransition] = useTransition();
+
   // 購買物品專用
   const [purchaseItem, setPurchaseItem] = useState('T-shirt$250');
   const [purchaseQty, setPurchaseQty] = useState<number | ''>(1);
@@ -97,10 +128,20 @@ export default function TeacherLeaveForm({
     setSelectedEnrollmentIds([]);
     setSelectedCourseIds([]);
     setStudentEnrollments([]);
+    // 防呆：切換學生時立即清空取消請假的選取狀態
+    setSelectedCancelLeaveId(null);
+    setCancelReason('');
+    setCancellableLeaves([]);
     if (val && requestType === 'course') {
       startEnrollmentTransition(async () => {
         const result = await getStudentEnrollments(val);
         setStudentEnrollments(result);
+      });
+    }
+    if (val && requestType === 'cancel') {
+      startCancelLeavesTransition(async () => {
+        const result = await getStudentCancellableLeaves(val);
+        setCancellableLeaves(result);
       });
     }
   }
@@ -123,9 +164,12 @@ export default function TeacherLeaveForm({
     setStudentEnrollments([]);
     setPurchaseQty(1);
     setDepartureDate('');
+    setSelectedCancelLeaveId(null);
+    setCancelReason('');
+    setCancellableLeaves([]);
   }
 
-  function handleTabChange(tab: 'leave' | 'course' | 'purchase' | 'departure') {
+  function handleTabChange(tab: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel') {
     setRequestType(tab);
     setSuccess(false);
     setError('');
@@ -182,6 +226,9 @@ export default function TeacherLeaveForm({
         } else if (requestType === 'departure') {
           const payload = JSON.stringify({ date: departureDate, reason });
           await submitCancelRequest({ teacherId, studentId, courseId: null, reason: payload, requestType: 'departure' });
+        } else if (requestType === 'cancel') {
+          if (!selectedCancelLeaveId) throw new Error('請選擇要取消的請假申請');
+          await submitCancellationRequest(selectedCancelLeaveId, teacherId, cancelReason);
         } else if (courseAction === 'cancel') {
           await Promise.all(
             selectedEnrollmentIds.map(enrollId => {
@@ -255,13 +302,15 @@ export default function TeacherLeaveForm({
 
   const successMessage = requestType === 'leave'
     ? '✓ 請假通報已送出，等待行政確認後生效。'
-    : requestType === 'purchase'
-      ? '✓ 購買物品申請已送出，等待行政處理。'
-      : requestType === 'departure'
-        ? '✓ 學生離校通知已送出，等待行政審核與結算。'
-        : courseAction === 'cancel'
-          ? `✓ 取消課程申請已送出（共 ${submittedCount} 筆），行政確認後將自動更新合約狀態。`
-          : `✓ 加報課程申請已送出（共 ${submittedCount} 筆），行政確認後將建立候補合約。`;
+    : requestType === 'cancel'
+      ? '✓ 取消請假申請已送出，等待行政審核。'
+      : requestType === 'purchase'
+        ? '✓ 購買物品申請已送出，等待行政處理。'
+        : requestType === 'departure'
+          ? '✓ 學生離校通知已送出，等待行政審核與結算。'
+          : courseAction === 'cancel'
+            ? `✓ 取消課程申請已送出（共 ${submittedCount} 筆），行政確認後將自動更新合約狀態。`
+            : `✓ 加報課程申請已送出（共 ${submittedCount} 筆），行政確認後將建立候補合約。`;
 
   const needsProof = requestType === 'leave' && (
     (leaveType === '病假' && !!diseaseType && diseaseType !== '以上皆非') ||
@@ -269,21 +318,23 @@ export default function TeacherLeaveForm({
   );
   const isSubmittable = requestType === 'leave'
     ? !!studentId && !!reason && !!leaveDate && (!needsProof || !!proofFile)
-    : requestType === 'course'
-      ? !!studentId && !!reason &&
-        (courseAction === 'cancel'
-          ? selectedEnrollmentIds.length > 0
-          : selectedCourseIds.length > 0)
-      : requestType === 'purchase'
-        ? !!studentId && !!purchaseQty
-        : requestType === 'departure'
-          ? !!studentId && !!departureDate && !!reason
-          : false;
+    : requestType === 'cancel'
+      ? !!studentId && !!selectedCancelLeaveId && cancellableLeaves.length > 0
+      : requestType === 'course'
+        ? !!studentId && !!reason &&
+          (courseAction === 'cancel'
+            ? selectedEnrollmentIds.length > 0
+            : selectedCourseIds.length > 0)
+        : requestType === 'purchase'
+          ? !!studentId && !!purchaseQty
+          : requestType === 'departure'
+            ? !!studentId && !!departureDate && !!reason
+            : false;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 主 Tab */}
-      {(requestType === 'leave' || requestType === 'course') && (
+      {(requestType === 'leave' || requestType === 'course' || requestType === 'cancel') && (
         <div className="flex w-full mb-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
           <button
             type="button"
@@ -298,6 +349,13 @@ export default function TeacherLeaveForm({
             className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'course' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
           >
             課程異動
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('cancel')}
+            className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'cancel' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
+          >
+            取消請假
           </button>
         </div>
       )}
@@ -342,6 +400,68 @@ export default function TeacherLeaveForm({
           ))}
         </select>
       </div>
+
+      {/* 取消請假：假單選擇 */}
+      {requestType === 'cancel' && (
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              選擇要取消的請假申請
+              <span className="text-destructive"> *</span>
+            </p>
+            {!studentId ? (
+              <p className="text-sm text-muted-foreground py-2">請先選擇學生</p>
+            ) : cancelLeavesLoading ? (
+              <p className="text-sm text-muted-foreground py-2">載入中...</p>
+            ) : cancellableLeaves.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">該學生近期無可取消的請假申請</p>
+            ) : (
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
+                {cancellableLeaves.map((l) => {
+                  const dateLabel = l.leave_date_end && l.leave_date_end !== l.leave_date
+                    ? `${l.leave_date} ～ ${l.leave_date_end}`
+                    : l.leave_date;
+                  const isAlreadyCancelling = cancellingIds.has(l.id);
+                  return (
+                    <label
+                      key={l.id}
+                      className={`flex items-start gap-3 ${isAlreadyCancelling ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancelLeaveId"
+                        value={l.id}
+                        disabled={isAlreadyCancelling}
+                        checked={selectedCancelLeaveId === l.id}
+                        onChange={() => !isAlreadyCancelling && setSelectedCancelLeaveId(l.id)}
+                        className="mt-0.5 accent-teal-700"
+                      />
+                      <span className="text-sm leading-snug">
+                        <span className="font-medium">{dateLabel}</span>
+                        {l.leave_type && <span className="ml-1.5 text-xs text-muted-foreground">{l.leave_type}</span>}
+                        {l.reason && <span className="ml-1.5 text-xs text-slate-500">— {l.reason}</span>}
+                        {isAlreadyCancelling && (
+                          <span className="ml-2 text-xs text-amber-600 font-medium">取消審核中</span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">取消原因（選填）</p>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="請說明取消原因（如：家長通知行程異動）"
+              rows={3}
+              className="w-full h-auto rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-teal-600 focus:outline-none transition-shadow"
+            />
+          </div>
+        </div>
+      )}
 
       {/* 課程異動：課程選擇 */}
       {requestType === 'course' && (
@@ -605,7 +725,7 @@ export default function TeacherLeaveForm({
         </div>
       ) : (
         <Button type="submit" disabled={pending || !isSubmittable} className="w-full h-12 text-base font-bold shadow-md hover:bg-teal-800 bg-teal-900 text-teal-50 active:scale-[0.98] transition-all mt-4">
-          {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : requestType === 'purchase' ? '送出購買申請' : requestType === 'departure' ? '送出離校通知' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
+          {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : requestType === 'cancel' ? '送出取消請假申請' : requestType === 'purchase' ? '送出購買申請' : requestType === 'departure' ? '送出離校通知' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
         </Button>
       )}
     </form>

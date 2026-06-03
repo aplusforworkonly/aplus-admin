@@ -1,7 +1,6 @@
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import CancellationRequestButton from '@/components/teacher/CancellationRequestButton';
 
 type RequestEntry = {
   id: string;
@@ -59,23 +58,17 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
 
 function CancelAction({
   row,
-  teacherId,
   cancellingIds,
-  canCancel,
 }: {
   row: RequestEntry;
   teacherId: string;
   cancellingIds: Set<string>;
   canCancel: boolean;
 }) {
-  if (!canCancel || !row.rawLeaveId || row.type !== '請假') return null;
+  if (!row.rawLeaveId || row.type !== '請假') return null;
   if (row.status !== 'pending' && row.status !== 'approved') return null;
-
-  if (cancellingIds.has(row.rawLeaveId)) {
-    return <span className="text-xs text-muted-foreground">取消審核中</span>;
-  }
-
-  return <CancellationRequestButton refRequestId={row.rawLeaveId} teacherId={teacherId} />;
+  if (!cancellingIds.has(row.rawLeaveId)) return null;
+  return <span className="text-xs text-amber-600 font-medium">取消審核中</span>;
 }
 
 function RequestTable({

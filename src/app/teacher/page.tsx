@@ -13,7 +13,7 @@ export default async function TeacherPage(props: {
   const searchParams = await props.searchParams;
   const tabParam = searchParams?.tab;
   const viewParam = searchParams?.view;
-  const validTabs = ['leave', 'course', 'purchase', 'departure'] as const;
+  const validTabs = ['leave', 'course', 'purchase', 'departure', 'cancel'] as const;
   const defaultTab = (validTabs.includes((tabParam as typeof validTabs[number]) || 'leave') ? tabParam : 'leave') as typeof validTabs[number];
 
   const session = await createSessionClient();
@@ -238,7 +238,7 @@ export default async function TeacherPage(props: {
 
           {/* 非督導查看模式才顯示表單 */}
           {!isViewingOther && (
-            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} courseCapacity={courseCapacity} defaultTab={defaultTab} />
+            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} courseCapacity={courseCapacity} defaultTab={defaultTab} cancellingIds={cancellingIds} />
           )}
         </CardContent>
       </Card>
