@@ -23,7 +23,7 @@ export default async function LeaveCalendarPage({
 
   const { data: leaves } = await supabase
     .from('student_leaves')
-    .select('id, leave_date, leave_type, students(name, english_name, campus)')
+    .select('id, leave_date, leave_type, students(name, english_name, campus, enrollment_date)')
     .gte('leave_date', startDate)
     .lt('leave_date', endDate)
     .order('leave_date');

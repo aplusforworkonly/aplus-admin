@@ -1,3 +1,5 @@
+import { getGrade } from '@/lib/grade';
+
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 const LEAVE_TYPE_COLOR: Record<string, string> = {
@@ -12,7 +14,7 @@ export type LeaveEntry = {
   id: string;
   leave_date: string;
   leave_type: string | null;
-  students: { name: string; english_name: string | null } | null;
+  students: { name: string; english_name: string | null; enrollment_date: string | null } | null;
 };
 
 export type LeavesByDate = Record<string, LeaveEntry[]>;
@@ -124,11 +126,12 @@ export default function LeaveCalendarGrid({
                               </span>
                             )}
                           </div>
-                          {l.students?.english_name && (
-                            <div className="text-[10px] text-muted-foreground truncate">
-                              {l.students.english_name}
-                            </div>
-                          )}
+                          <div className="text-[10px] text-muted-foreground truncate">
+                            {[
+                              l.students?.english_name,
+                              l.students?.enrollment_date ? getGrade(l.students.enrollment_date) : null,
+                            ].filter(Boolean).join(' · ')}
+                          </div>
                         </div>
                       ))}
                     </div>
