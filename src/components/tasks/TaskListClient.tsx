@@ -8,8 +8,8 @@ import { TaskStatusBadge } from './TaskStatusBadge';
 import { TaskDialog } from './TaskDialog';
 import { updateTaskStatus, deleteTask } from '@/actions/admin-tasks';
 import type { AdminTask, TaskStatus, TaskType } from '@/lib/supabase/types';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const TASK_TYPES: { value: TaskType | ''; label: string }[] = [
   { value: '', label: '全部類型' },
   { value: 'project', label: '專案' },

@@ -6,8 +6,8 @@ import { getGrade } from '@/lib/grade';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'] as const;
 const CAMPUS_SHORT: Record<string, string> = { '文府總校': '文府', '龍華校': '龍華', '左新校': '左新' };
 const GRADE_ORDER = ['大班升小一', '小一', '小二', '小三', '小四', '小五', '小六'];
 

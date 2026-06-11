@@ -2,8 +2,8 @@
 import { useState, useTransition, useEffect, useRef } from 'react';
 import { Settings, X } from 'lucide-react';
 import { toggleSupervisor, getSupervisorAccess, setSupervisorAccess } from '@/actions/teachers';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 type Teacher = {
   id: string;
@@ -82,7 +82,7 @@ export default function SupervisorCell({
     teachers: candidates.filter((t) => t.campus === campus),
   })).filter((g) => g.teachers.length > 0);
 
-  const others = candidates.filter((t) => !CAMPUSES.includes(t.campus ?? ''));
+  const others = candidates.filter((t) => !(CAMPUSES as readonly string[]).includes(t.campus ?? ''));
 
   return (
     <div className="relative flex items-center justify-center gap-2">

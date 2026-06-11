@@ -6,6 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { batchAssignTutors } from '@/actions/students';
+import { CAMPUSES } from '@/lib/constants';
 
 export type TutorOption = { id: string; name: string; campus: string; department: string | null };
 
@@ -29,7 +30,6 @@ export type EnrollmentRow = {
   noSummerEnrollment: boolean;
 };
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const PROGRAM_TYPES = ['全日班', '單上英語', '其他'];
 
 const GRADE_ORDER: Record<string, number> = {

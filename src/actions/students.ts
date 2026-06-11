@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { createServerClient } from '@/lib/supabase/server';
-import type { StudentStatus, ProgramType } from '@/lib/supabase/types';
+import type { StudentStatus, ProgramType, HalfDayType } from '@/lib/supabase/types';
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, '');
@@ -18,6 +18,11 @@ export type StudentPayload = {
   is_school_student: boolean;
   program_type: ProgramType | null;
   main_tutor_id: string | null;
+  july_half_day: HalfDayType;
+  august_half_day: HalfDayType;
+  half_day_am_dates: string[];
+  half_day_pm_dates: string[];
+  half_day_meal_dates: string[];
 };
 
 export type ConflictResult =

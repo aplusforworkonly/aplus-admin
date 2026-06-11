@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { getGrade } from '@/lib/grade';
 import { updateClassStudents } from '@/actions/classes';
+import { CAMPUSES } from '@/lib/constants';
 
 type Student = {
   id: string;
@@ -15,7 +16,6 @@ type Student = {
 };
 
 const GRADES = ['大班升小一', '小一', '小二', '小三', '小四', '小五', '小六'];
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 function FilterBtn({
   active,
@@ -105,12 +105,14 @@ export default function StudentAssignClassForm({
   allStudents,
   assignedIds,
   enrolledStudentIds,
+  assignedElsewhereIds = [],
   hasCourse,
 }: {
   classId: string;
   allStudents: Student[];
   assignedIds: string[];
   enrolledStudentIds: string[];
+  assignedElsewhereIds?: string[];
   hasCourse: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set(assignedIds));
@@ -122,9 +124,14 @@ export default function StudentAssignClassForm({
   const [pending, startTransition] = useTransition();
 
   const enrolledSet = new Set(enrolledStudentIds);
+  // 已分到同課程其他班的學生，不計入「待分班」
+  const assignedElsewhereSet = new Set(assignedElsewhereIds);
 
   // 全部待分班人數（不受篩選影響，用於頂部 Banner）
-  const allPendingCount = enrolledStudentIds.filter((id) => !selected.has(id)).length;
+  // 排除：已在本班（selected）或已在同課程其他班（assignedElsewhereSet）
+  const allPendingCount = enrolledStudentIds.filter(
+    (id) => !selected.has(id) && !assignedElsewhereSet.has(id)
+  ).length;
 
   const filtered = allStudents.filter((s) => {
     const matchName =
@@ -140,8 +147,12 @@ export default function StudentAssignClassForm({
   const recommended = hasCourse ? filtered.filter((s) => enrolledSet.has(s.id)) : [];
   const others = hasCourse ? filtered.filter((s) => !enrolledSet.has(s.id)) : filtered;
 
-  // 待分班排在最前面
-  const pendingSet = new Set(recommended.filter((s) => !selected.has(s.id)).map((s) => s.id));
+  // 待分班排在最前面（同時排除已在其他班的學生）
+  const pendingSet = new Set(
+    recommended
+      .filter((s) => !selected.has(s.id) && !assignedElsewhereSet.has(s.id))
+      .map((s) => s.id)
+  );
   const sortedRecommended = [
     ...recommended.filter((s) => pendingSet.has(s.id)),
     ...recommended.filter((s) => !pendingSet.has(s.id)),

@@ -1,8 +1,8 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { CAMPUSES } from '@/lib/constants';
 
 const TERMS = ['上學期', '下學期', '夏令營', '冬令營'];
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 export default function ClassFilters({ years }: { years: string[] }) {
   const router = useRouter();

@@ -55,21 +55,20 @@ function buildCourseGroups(
     let groupKey: string;
     let groupLabel: string;
 
-    if (match) {
+    if (course.course_type === 'main_course') {
+      const monthMatch = course.name.match(/^(\d+月)/);
+      const monthPrefix = monthMatch ? monthMatch[1] : '';
+      groupKey = `main_course||${monthPrefix}`;
+      groupLabel = monthPrefix ? `${monthPrefix}英語分班` : '英語分班';
+    } else if (match) {
       const datePrefix = match[1].trim();
       const afterPipe = match[2].trim();
       const baseActivity = afterPipe.replace(/（[^）]*）$/, '').trim();
       groupKey = `${datePrefix}||${baseActivity}`;
       groupLabel = `${datePrefix}｜${baseActivity}`;
     } else {
-      if (course.course_type === 'main_course') {
-        const baseName = course.name.replace(/^[0-9]+月/, '').trim();
-        groupKey = `main_course||${baseName}`;
-        groupLabel = baseName;
-      } else {
-        groupKey = `solo||${course.id}`;
-        groupLabel = course.name;
-      }
+      groupKey = `solo||${course.id}`;
+      groupLabel = course.name;
     }
 
     if (!map.has(groupKey)) {
@@ -223,7 +222,7 @@ export default async function RosteringMatrixPage({
   const [{ data: classesData }, { data: enrollments }, { data: teachersData }] = await Promise.all([
     supabase
       .from('classes')
-      .select('id, name, teacher_id, teachers(name, english_name), class_students(count)')
+      .select('id, name, teacher_id, location, teachers(name, english_name), class_students(count)')
       .in('course_id', courseIdList)
       .eq('status', 'active')
       .order('name'),
@@ -258,14 +257,14 @@ export default async function RosteringMatrixPage({
   const classIds = (classesData ?? []).map((c: any) => c.id);
 
   const [{ data: currentAssignments }, { data: campEnrollments }] = await Promise.all([
-    classIds.length > 0 && studentIds.length > 0
+    classIds.length > 0
       ? supabase
           .from('class_students')
           .select('class_id, student_id')
           .in('class_id', classIds)
-          .in('student_id', studentIds)
       : { data: [] },
-    studentIds.length > 0
+    // 英語分班不需要 camp 鎖定邏輯，跳過大量 student_id in 查詢
+    currentTab === 'camp' && studentIds.length > 0
       ? supabase
           .from('enrollments')
           .select('student_id, courses(course_type)')
@@ -283,6 +282,57 @@ export default async function RosteringMatrixPage({
   const assignmentMap: Record<string, string> = {};
   for (const a of currentAssignments ?? []) {
     assignmentMap[(a as any).student_id] = (a as any).class_id;
+  }
+
+  // 上學期英語班（只在英語分班頁查詢）
+  const prevClassNameByStudent: Record<string, string> = {};
+  if (currentTab === 'english' && studentIds.length > 0) {
+    const prevCourseIds = courses
+      .filter((c) => c.course_type === 'main_course' && !courseIdList.includes(c.id))
+      .map((c) => c.id);
+
+    if (prevCourseIds.length > 0) {
+      const { data: prevClassesRaw } = await supabase
+        .from('classes')
+        .select('id, name, academic_year, term')
+        .in('course_id', prevCourseIds);
+
+      const prevClassById: Record<string, { name: string; year: string | null; term: string | null }> = {};
+      for (const c of prevClassesRaw ?? []) {
+        prevClassById[(c as any).id] = {
+          name: (c as any).name,
+          year: (c as any).academic_year ?? null,
+          term: (c as any).term ?? null,
+        };
+      }
+      const prevClassIds = Object.keys(prevClassById);
+
+      if (prevClassIds.length > 0) {
+        // 不用 .in('student_id', ...) 避免 URL 過長，改在 JS 過濾
+        const { data: prevAssignments } = await supabase
+          .from('class_students')
+          .select('student_id, class_id')
+          .in('class_id', prevClassIds);
+
+        const studentIdSet = new Set(studentIds);
+        const byStudent: Record<string, { name: string; year: string | null; term: string | null }[]> = {};
+        for (const a of prevAssignments ?? []) {
+          const sid = (a as any).student_id;
+          if (!studentIdSet.has(sid)) continue;
+          const cls = prevClassById[(a as any).class_id];
+          if (!cls) continue;
+          if (!byStudent[sid]) byStudent[sid] = [];
+          byStudent[sid].push(cls);
+        }
+        for (const [sid, clss] of Object.entries(byStudent)) {
+          const sorted = clss.sort((a, b) => {
+            const yCmp = (b.year ?? '').localeCompare(a.year ?? '');
+            return yCmp !== 0 ? yCmp : (b.term ?? '').localeCompare(a.term ?? '');
+          });
+          prevClassNameByStudent[sid] = sorted[0].name;
+        }
+      }
+    }
   }
 
   const seen = new Set<string>();
@@ -303,6 +353,7 @@ export default async function RosteringMatrixPage({
         mainTutorName: tutorMap[s.main_tutor_id] ?? null,
         assignedClassId: assignmentMap[s.id] ?? null,
         isLocked: lockedStudentIds.has(s.id),
+        previousEnglishClassName: prevClassNameByStudent[s.id] ?? null,
       };
     })
     .sort((a: StudentRow, b: StudentRow) => a.name.localeCompare(b.name, 'zh-TW'));
@@ -349,7 +400,12 @@ export default async function RosteringMatrixPage({
         courseId={primaryCourseId}
         courseCategory={courseCategory}
         teachers={teachers}
-        existingClasses={classes.map((c) => ({ id: c.id, name: c.name, teacherId: c.teacherId }))}
+        existingClasses={(classesData ?? []).map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            teacherId: (c.teacher_id as string | null) ?? null,
+            location: (c.location as string | null) ?? null,
+          }))}
       />
 
       {rows.length === 0 ? (

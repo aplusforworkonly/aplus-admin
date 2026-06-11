@@ -8,8 +8,8 @@ import {
 } from '@/components/ui/select';
 import { createRoutineDefinition, updateRoutineDefinition } from '@/actions/routine-definitions';
 import type { FrequencyType, TaskPriority, TaskSize, RoutineDefinition } from '@/lib/supabase/types';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
 interface Props {

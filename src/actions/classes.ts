@@ -21,7 +21,7 @@ export async function createClass(data: {
 
 export async function updateClassInfo(
   classId: string,
-  data: { name?: string; teacher_id?: string | null }
+  data: { name?: string; teacher_id?: string | null; location?: string | null }
 ) {
   const supabase = createServerClient();
   const { error } = await supabase.from('classes').update(data).eq('id', classId);

@@ -3,9 +3,10 @@ import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createClass, updateClassInfo } from '@/actions/classes';
+import ScheduleDrawerButton from './ScheduleDrawerButton';
 
 type Teacher = { id: string; name: string; english_name: string | null };
-type ExistingClass = { id: string; name: string; teacherId: string | null };
+type ExistingClass = { id: string; name: string; teacherId: string | null; location?: string | null; isOptimistic?: boolean };
 
 function ClassEditRow({
   cls,
@@ -59,6 +60,12 @@ function ClassEditRow({
         {pending ? '儲存中...' : '儲存'}
       </Button>
       {saved && <span className="text-xs text-green-600 shrink-0">✓</span>}
+      {cls.location && (
+        <span className="text-xs font-mono bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+          {cls.location}
+        </span>
+      )}
+      <ScheduleDrawerButton classId={cls.id} name={cls.name} location={cls.location ?? null} isOptimistic={cls.isOptimistic} />
     </div>
   );
 }

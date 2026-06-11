@@ -250,6 +250,60 @@ export default async function TeacherRosteringPage({
     assignmentMap[(a as any).student_id] = (a as any).class_id;
   }
 
+  // 上學期英語班（只在英語分班頁查詢）
+  const prevClassNameByStudent: Record<string, string> = {};
+  if (currentTab === 'english' && studentIds.length > 0) {
+    const { data: allMainCoursesData } = await supabase
+      .from('courses')
+      .select('id')
+      .eq('course_type', 'main_course');
+
+    const prevCourseIds = (allMainCoursesData ?? [])
+      .map((c: any) => c.id as string)
+      .filter((id) => !courseIdList.includes(id));
+
+    if (prevCourseIds.length > 0) {
+      const { data: prevClassesRaw } = await supabase
+        .from('classes')
+        .select('id, name, academic_year, term')
+        .in('course_id', prevCourseIds);
+
+      const prevClassById: Record<string, { name: string; year: string | null; term: string | null }> = {};
+      for (const c of prevClassesRaw ?? []) {
+        prevClassById[(c as any).id] = {
+          name: (c as any).name,
+          year: (c as any).academic_year ?? null,
+          term: (c as any).term ?? null,
+        };
+      }
+      const prevClassIds = Object.keys(prevClassById);
+
+      if (prevClassIds.length > 0) {
+        const { data: prevAssignments } = await supabase
+          .from('class_students')
+          .select('student_id, class_id')
+          .in('student_id', studentIds)
+          .in('class_id', prevClassIds);
+
+        const byStudent: Record<string, { name: string; year: string | null; term: string | null }[]> = {};
+        for (const a of prevAssignments ?? []) {
+          const cls = prevClassById[(a as any).class_id];
+          if (!cls) continue;
+          const sid = (a as any).student_id;
+          if (!byStudent[sid]) byStudent[sid] = [];
+          byStudent[sid].push(cls);
+        }
+        for (const [sid, clss] of Object.entries(byStudent)) {
+          const sorted = clss.sort((a, b) => {
+            const yCmp = (b.year ?? '').localeCompare(a.year ?? '');
+            return yCmp !== 0 ? yCmp : (b.term ?? '').localeCompare(a.term ?? '');
+          });
+          prevClassNameByStudent[sid] = sorted[0].name;
+        }
+      }
+    }
+  }
+
   const seen = new Set<string>();
   const rows: StudentRow[] = (enrollments ?? [])
     .filter((e: any) => { if (seen.has(e.student_id)) return false; seen.add(e.student_id); return true; })
@@ -264,6 +318,7 @@ export default async function TeacherRosteringPage({
         mainTutorName: tutorMap[s.main_tutor_id] ?? null,
         assignedClassId: assignmentMap[s.id] ?? null,
         isLocked: lockedStudentIds.has(s.id),
+        previousEnglishClassName: prevClassNameByStudent[s.id] ?? null,
       };
     })
     .sort((a: StudentRow, b: StudentRow) => a.name.localeCompare(b.name, 'zh-TW'));

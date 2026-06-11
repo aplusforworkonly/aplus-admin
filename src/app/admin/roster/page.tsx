@@ -38,7 +38,7 @@ export default async function AdminRosterPage() {
   for (let offset = 0; ; offset += PAGE) {
     const { data } = await supabase
       .from('enrollments')
-      .select('student_id, start_date, courses(name, course_type)')
+      .select('student_id, start_date, end_date, courses(name, course_type, billing_cycle)')
       .eq('status', '生效')
       .order('id')
       .range(offset, offset + PAGE - 1);
@@ -87,10 +87,14 @@ export default async function AdminRosterPage() {
     const month = courseMonth(c.name, (e as any).start_date);
     const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     const sid = (e as any).student_id;
+    // camp + monthly（YLE、真人口說）：同時顯示在 7 月和 8 月欄
+    const isMonthlycamp = c.billing_cycle === 'monthly' && c.course_type === 'camp';
     if (month === '07') {
       julyRaw[sid] = [...(julyRaw[sid] ?? []), entry];
+      if (isMonthlycamp) augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
     } else if (month === '08') {
       augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
+      if (isMonthlycamp) julyRaw[sid] = [...(julyRaw[sid] ?? []), entry];
     }
   }
   function dedupeEntries(entries: { name: string; order: number }[]) {

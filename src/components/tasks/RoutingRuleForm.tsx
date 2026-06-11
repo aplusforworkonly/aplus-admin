@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createRoutingRule, updateRoutingRule } from '@/actions/task-routing-rules';
 import type { TaskSource } from '@/lib/supabase/types';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const GRADE_OPTIONS = [
   { label: '大班升小一', value: 0 },
   { label: '小一', value: 1 }, { label: '小二', value: 2 },

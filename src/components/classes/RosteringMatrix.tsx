@@ -13,6 +13,7 @@ export type StudentRow = {
   mainTutorName: string | null;
   assignedClassId: string | null;
   isLocked: boolean;
+  previousEnglishClassName: string | null;
 };
 
 export type ClassOption = {
@@ -45,11 +46,29 @@ export default function RosteringMatrix({
   const [gradeFilter, setGradeFilter] = useState('');
   const [campusFilter, setCampusFilter] = useState('');
   const [tutorFilter, setTutorFilter] = useState('');
+  const [prevClassFilter, setPrevClassFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'previousClass'>('name');
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [saving, startSave] = useTransition();
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const dragInProgress = useRef(false);
+
+  const uniquePreviousClasses = useMemo(
+    () => [...new Set(initialRows.map((r) => r.previousEnglishClassName).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'zh-TW')),
+    [initialRows]
+  );
+  const showPreviousClassColumn = uniquePreviousClasses.length > 0;
+
+  const sortedRows = useMemo(() => {
+    if (sortBy !== 'previousClass' || !showPreviousClassColumn) return initialRows;
+    return [...initialRows].sort((a, b) => {
+      const aC = a.previousEnglishClassName ?? '￿';
+      const bC = b.previousEnglishClassName ?? '￿';
+      const cmp = aC.localeCompare(bC, 'zh-TW');
+      return cmp !== 0 ? cmp : a.name.localeCompare(b.name, 'zh-TW');
+    });
+  }, [initialRows, sortBy, showPreviousClassColumn]);
 
   // Window mouseup listener for drag-to-fill
   useEffect(() => {
@@ -61,7 +80,7 @@ export default function RosteringMatrix({
         setAssignments((prev) => {
           const next = { ...prev };
           for (let i = lo; i <= hi; i++) {
-            const row = initialRows[i];
+            const row = sortedRows[i];
             if (!row.isLocked) next[row.id] = drag.value;
           }
           return next;
@@ -73,7 +92,7 @@ export default function RosteringMatrix({
     };
     window.addEventListener('mouseup', handleUp);
     return () => window.removeEventListener('mouseup', handleUp);
-  }, [drag, dragEndIdx, initialRows]);
+  }, [drag, dragEndIdx, sortedRows]);
 
   const uniqueGrades = useMemo(
     () => [...new Set(initialRows.map((r) => r.grade))].sort(),
@@ -90,23 +109,24 @@ export default function RosteringMatrix({
 
   const filteredRows = useMemo(
     () =>
-      initialRows.map((row, i) => ({ row, i })).filter(({ row }) => {
+      sortedRows.map((row, i) => ({ row, i })).filter(({ row }) => {
         if (gradeFilter && row.grade !== gradeFilter) return false;
         if (campusFilter && row.campus !== campusFilter) return false;
         if (tutorFilter && row.mainTutorName !== tutorFilter) return false;
+        if (prevClassFilter && row.previousEnglishClassName !== prevClassFilter) return false;
         return true;
       }),
-    [initialRows, gradeFilter, campusFilter, tutorFilter]
+    [sortedRows, gradeFilter, campusFilter, tutorFilter, prevClassFilter]
   );
 
   const rosterGroups = useMemo(() => {
     const byClass = classes.map((c) => {
-      const students = initialRows.filter((r) => assignments[r.id] === c.id);
+      const students = sortedRows.filter((r) => assignments[r.id] === c.id);
       return { ...c, students, draftCount: students.length };
     });
-    const unassigned = initialRows.filter((r) => !assignments[r.id]);
+    const unassigned = sortedRows.filter((r) => !assignments[r.id]);
     return { byClass, unassigned };
-  }, [classes, initialRows, assignments]);
+  }, [classes, sortedRows, assignments]);
 
   const displayCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -271,15 +291,37 @@ export default function RosteringMatrix({
               <option value="">全部總導師</option>
               {uniqueTutors.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            {(gradeFilter || campusFilter || tutorFilter) && (
+            {showPreviousClassColumn && (
+              <select
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-36"
+                value={prevClassFilter}
+                onChange={(e) => setPrevClassFilter(e.target.value)}
+              >
+                <option value="">全部上學期英語班</option>
+                {uniquePreviousClasses.map((c) => <option key={c} value={c}>{c}</option>)}
+                <option value="">（新生）</option>
+              </select>
+            )}
+            {(gradeFilter || campusFilter || tutorFilter || prevClassFilter) && (
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => { setGradeFilter(''); setCampusFilter(''); setTutorFilter(''); }}
+                onClick={() => { setGradeFilter(''); setCampusFilter(''); setTutorFilter(''); setPrevClassFilter(''); }}
                 className="text-xs text-muted-foreground h-8 px-2"
               >
                 清除篩選
+              </Button>
+            )}
+            {showPreviousClassColumn && (
+              <Button
+                type="button"
+                variant={sortBy === 'previousClass' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSortBy((v) => v === 'previousClass' ? 'name' : 'previousClass')}
+                className="h-8 text-xs"
+              >
+                {sortBy === 'previousClass' ? '↑ 依上學期英語班排序' : '依上學期英語班排序'}
               </Button>
             )}
             {pendingCount > 0 && (
@@ -292,7 +334,7 @@ export default function RosteringMatrix({
                 待分班 {pendingCount} 人
               </Button>
             )}
-            {(gradeFilter || campusFilter || tutorFilter || showOnlyPending) && (
+            {(gradeFilter || campusFilter || tutorFilter || prevClassFilter || showOnlyPending) && (
               <span className="text-xs text-muted-foreground ml-auto">
                 顯示 {displayRows.length} / {initialRows.length} 位
               </span>
@@ -319,6 +361,9 @@ export default function RosteringMatrix({
                   <th className="py-2 px-2 text-left font-medium w-16">年級</th>
                   <th className="py-2 px-2 text-left font-medium w-20">校區</th>
                   <th className="py-2 px-2 text-left font-medium w-28">總導師</th>
+                  {showPreviousClassColumn && (
+                    <th className="py-2 px-2 text-left font-medium w-28">上學期英語班</th>
+                  )}
                   <th className="py-2 px-2 text-left font-medium">分配班級</th>
                 </tr>
               </thead>
@@ -354,6 +399,17 @@ export default function RosteringMatrix({
                           <span className="text-xs px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">新生</span>
                         )}
                       </td>
+                      {showPreviousClassColumn && (
+                        <td className="py-2 px-2">
+                          {row.previousEnglishClassName ? (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                              {row.previousEnglishClassName}
+                            </span>
+                          ) : (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">新生</span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-2 px-2">
                         <div className="flex items-center gap-1 relative">
                           <select
@@ -439,6 +495,9 @@ export default function RosteringMatrix({
                         <th className="py-2 px-4 text-left font-medium w-16">年級</th>
                         <th className="py-2 px-4 text-left font-medium w-24">校區</th>
                         <th className="py-2 px-4 text-left font-medium">總導師</th>
+                        {showPreviousClassColumn && (
+                          <th className="py-2 px-4 text-left font-medium">上學期英語班</th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -455,6 +514,17 @@ export default function RosteringMatrix({
                               <span className="text-xs px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">新生</span>
                             )}
                           </td>
+                          {showPreviousClassColumn && (
+                            <td className="py-2 px-4">
+                              {row.previousEnglishClassName ? (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                                  {row.previousEnglishClassName}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -485,6 +555,17 @@ export default function RosteringMatrix({
                           <span className="text-xs px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">新生</span>
                         )}
                       </td>
+                      {showPreviousClassColumn && (
+                        <td className="py-2 px-4">
+                          {row.previousEnglishClassName ? (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                              {row.previousEnglishClassName}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

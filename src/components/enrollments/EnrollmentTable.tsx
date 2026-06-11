@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useState, useRef, useEffect, useTransition } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -74,9 +74,19 @@ export default function EnrollmentTable({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState('');
+  const searchParam = searchParams.get('search') ?? '';
+  const [inputValue, setInputValue] = useState(searchParam);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [classFilter, setClassFilter] = useState<string>('all');
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setInputValue(searchParam);
+  }, [searchParam]);
+
+  useEffect(() => {
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, []);
 
   const statusParam = searchParams.get('status') ?? DEFAULT_STATUS;
   const campusParam = searchParams.get('campus') ?? 'all';
@@ -100,10 +110,11 @@ export default function EnrollmentTable({
 
   const filtered = enrollments.filter((e) => {
     const matchSearch =
-      !search ||
-      e.students?.name?.includes(search) ||
-      e.contract_no.includes(search) ||
-      e.courses?.name?.includes(search);
+      !searchParam ||
+      e.students?.name?.includes(searchParam) ||
+      e.students?.english_name?.includes(searchParam) ||
+      e.contract_no.includes(searchParam) ||
+      e.courses?.name?.includes(searchParam);
     const matchClass =
       classFilter === 'all' ||
       (classStudentIds[classFilter]?.includes(e.student_id) ?? false);
@@ -115,8 +126,14 @@ export default function EnrollmentTable({
       <div className="flex gap-2 items-center flex-wrap">
         <Input
           placeholder="搜尋學生、課程、合約編號..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={inputValue}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            if (searchTimer.current) clearTimeout(searchTimer.current);
+            searchTimer.current = setTimeout(() => {
+              navigate({ search: e.target.value || null });
+            }, 400);
+          }}
           className="max-w-xs"
         />
 

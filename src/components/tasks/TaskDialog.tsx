@@ -8,8 +8,8 @@ import {
 } from '@/components/ui/select';
 import { createAdminTask, updateTask } from '@/actions/admin-tasks';
 import type { TaskType, TaskPriority, TaskSize, AdminTask } from '@/lib/supabase/types';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 interface Props {
   teachers: { id: string; name: string }[];

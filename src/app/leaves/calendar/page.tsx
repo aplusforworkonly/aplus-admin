@@ -1,10 +1,10 @@
 import { createServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import LeaveCalendarGrid, { buildGridDates, type LeavesByDate } from '@/components/leaves/LeaveCalendarGrid';
+import { CAMPUSES } from '@/lib/constants';
 
 export const dynamic = 'force-dynamic';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 export default async function LeaveCalendarPage({
   searchParams,

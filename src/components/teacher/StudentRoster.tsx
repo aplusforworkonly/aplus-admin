@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import Link from 'next/link';
+import { CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -96,6 +98,15 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
                 <span className="font-medium text-slate-700">其他備註：</span><span className="text-slate-600">{r.registrationNote ?? '—'}</span>
               </p>
             </div>
+            <div className="border-t pt-2">
+              <Link
+                href={`/teacher/students/${r.id}`}
+                className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                查看課表
+              </Link>
+            </div>
             </div>
           </div>
         ))}
@@ -127,6 +138,13 @@ export default function StudentRoster({ rows }: { rows: StudentRow[] }) {
                 <TableCell className="text-sm">
                   <p className="font-medium">{r.name}</p>
                   {r.englishName && <p className="text-xs text-muted-foreground">{r.englishName}</p>}
+                  <Link
+                    href={`/teacher/students/${r.id}`}
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium mt-1"
+                  >
+                    <CalendarDays className="w-3 h-3" />
+                    課表
+                  </Link>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {r.classes.length > 0 ? (

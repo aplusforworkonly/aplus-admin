@@ -15,8 +15,20 @@ export default async function EnrollmentsPage({ searchParams }: Props) {
 
   const statuses = params.status === 'all' ? ALL_STATUSES : (params.status?.split(',') ?? DEFAULT_STATUSES);
   const campus = params.campus && params.campus !== 'all' ? params.campus : null;
+  const search = params.search?.trim().replace(/[(),.]/g, '') || null;
 
   const supabase = createServerClient();
+
+  let studentIds: string[] = [];
+  let courseIds: string[] = [];
+  if (search) {
+    const [{ data: matchStudents }, { data: matchCourses }] = await Promise.all([
+      supabase.from('students').select('id').or(`name.ilike.%${search}%,english_name.ilike.%${search}%`),
+      supabase.from('courses').select('id').ilike('name', `%${search}%`),
+    ]);
+    studentIds = (matchStudents ?? []).map((s: any) => s.id);
+    courseIds  = (matchCourses  ?? []).map((c: any) => c.id);
+  }
 
   let enrollmentQuery = supabase
     .from('enrollments')
@@ -29,6 +41,13 @@ export default async function EnrollmentsPage({ searchParams }: Props) {
     .range(offset, offset + PAGE_SIZE - 1);
 
   if (campus) enrollmentQuery = (enrollmentQuery as any).eq('campus', campus);
+
+  if (search) {
+    const orParts = [`contract_no.ilike.%${search}%`];
+    if (studentIds.length > 0) orParts.push(`student_id.in.(${studentIds.join(',')})`);
+    if (courseIds.length > 0)  orParts.push(`course_id.in.(${courseIds.join(',')})`);
+    enrollmentQuery = (enrollmentQuery as any).or(orParts.join(','));
+  }
 
   const [
     { data: classes },

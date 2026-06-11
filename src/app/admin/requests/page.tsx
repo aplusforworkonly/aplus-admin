@@ -6,13 +6,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import CancelRequestButtons from '@/components/requests/CancelRequestButtons';
 import Link from 'next/link';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const REQUEST_TYPES: { value: string; label: string }[] = [
   { value: 'add', label: '加報課程' },
   { value: 'cancel', label: '取消課程' },
   { value: 'departure', label: '離校通知' },
   { value: 'purchase', label: '物品購買' },
+  { value: 'half_day', label: '半日異動' },
 ];
 
 function statusLabel(s: string) {
@@ -53,6 +54,9 @@ function RequestTypeBadge({ requestType }: { requestType: string }) {
   if (requestType === 'departure') {
     return <Badge variant="destructive">離校通知</Badge>;
   }
+  if (requestType === 'half_day') {
+    return <Badge className="bg-purple-600 hover:bg-purple-700">半日異動</Badge>;
+  }
   return <Badge variant="outline">取消課程</Badge>;
 }
 
@@ -62,6 +66,14 @@ function formatReason(r: any) {
       const parsed = JSON.parse(r.reason || '{}');
       if (r.request_type === 'purchase') return `品項：${parsed.item}，數量：${parsed.qty}`;
       if (r.request_type === 'departure') return `[離校日期: ${parsed.date}] ${parsed.reason}`;
+    } catch (e) {}
+  }
+  if (r.request_type === 'half_day') {
+    try {
+      const parsed = JSON.parse(r.reason || '{}');
+      const dates = (parsed.dates ?? []).join('、');
+      const typeLabel = parsed.halfDayType === 'PM' ? '下半日' : '上半日';
+      return `日期：${dates || '—'}　${typeLabel}　${parsed.includeMeal ? '含餐' : '不含餐'}`;
     } catch (e) {}
   }
   return r.reason ?? '—';

@@ -1,7 +1,8 @@
 'use server';
 import { revalidatePath } from 'next/cache';
-import { createServerClient, createSessionClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { createAdminTask, resolveTaskBySourceId } from '@/actions/admin-tasks';
+import { getHandledBy } from '@/actions/shared';
 
 function dateRange(start: string, end: string): string[] {
   const dates: string[] = [];
@@ -14,17 +15,6 @@ function dateRange(start: string, end: string): string[] {
   return dates;
 }
 
-async function getHandledBy(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
-  try {
-    const sessionClient = await createSessionClient();
-    const { data: { user } } = await sessionClient.auth.getUser();
-    if (!user) return null;
-    const { data: t } = await supabase.from('teachers').select('id').eq('user_id', user.id).single();
-    return t?.id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export async function approveLeaveRequest(id: string) {
   const supabase = createServerClient();

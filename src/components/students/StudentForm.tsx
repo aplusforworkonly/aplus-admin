@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { StudentWithParents, StudentStatus, CampusType, ProgramType } from '@/lib/supabase/types';
+import type { StudentWithParents, StudentStatus, CampusType, ProgramType, HalfDayType } from '@/lib/supabase/types';
 
 type TeacherOption = { id: string; name: string; english_name: string | null; department: string | null };
 
@@ -83,7 +83,16 @@ export default function StudentForm({ student, teachers = [] }: Props) {
     is_school_student: student?.is_school_student ?? defaultForm.is_school_student,
     program_type: student?.program_type ?? defaultForm.program_type,
     main_tutor_id: student?.main_tutor_id ?? defaultForm.main_tutor_id,
+    july_half_day: (student?.july_half_day ?? 'none') as HalfDayType,
+    august_half_day: (student?.august_half_day ?? 'none') as HalfDayType,
+    half_day_am_dates: student?.half_day_am_dates ?? [] as string[],
+    half_day_pm_dates: student?.half_day_pm_dates ?? [] as string[],
+    half_day_meal_dates: student?.half_day_meal_dates ?? [] as string[],
   });
+  const [halfDayAmDateInput, setHalfDayAmDateInput] = useState('');
+  const [halfDayAmMeal, setHalfDayAmMeal] = useState(false);
+  const [halfDayPmDateInput, setHalfDayPmDateInput] = useState('');
+  const [halfDayPmMeal, setHalfDayPmMeal] = useState(false);
 
   function handleGradeChange(gradeLabel: string | null) {
     if (!gradeLabel) return;
@@ -123,6 +132,11 @@ export default function StudentForm({ student, teachers = [] }: Props) {
         is_school_student: form.is_school_student,
         program_type: form.program_type,
         main_tutor_id: form.main_tutor_id,
+        july_half_day: form.july_half_day,
+        august_half_day: form.august_half_day,
+        half_day_am_dates: form.half_day_am_dates,
+        half_day_pm_dates: form.half_day_pm_dates,
+        half_day_meal_dates: form.half_day_meal_dates,
       };
       if (isNew) {
         if (parentPhone.trim()) {
@@ -351,6 +365,178 @@ export default function StudentForm({ student, teachers = [] }: Props) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>暑假半日設定</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>7月半日設定</Label>
+              <Select
+                value={form.july_half_day}
+                onValueChange={(v) => setForm((p) => ({ ...p, july_half_day: v as HalfDayType }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">全日（預設）</SelectItem>
+                  <SelectItem value="full_month">整月半日不含餐</SelectItem>
+                  <SelectItem value="full_month_meal">整月半日含餐</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>8月半日設定</Label>
+              <Select
+                value={form.august_half_day}
+                onValueChange={(v) => setForm((p) => ({ ...p, august_half_day: v as HalfDayType }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">全日（預設）</SelectItem>
+                  <SelectItem value="full_month">整月半日不含餐</SelectItem>
+                  <SelectItem value="full_month_meal">整月半日含餐</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>上半日日期（早上出席）</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={halfDayAmDateInput}
+                onChange={(e) => setHalfDayAmDateInput(e.target.value)}
+                className="max-w-xs"
+              />
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={halfDayAmMeal}
+                  onChange={(e) => setHalfDayAmMeal(e.target.checked)}
+                  className="rounded border-slate-300 text-teal-600"
+                />
+                含餐
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!halfDayAmDateInput || form.half_day_am_dates.includes(halfDayAmDateInput)) return;
+                  setForm((p) => ({
+                    ...p,
+                    half_day_am_dates: [...p.half_day_am_dates, halfDayAmDateInput].sort(),
+                    half_day_meal_dates: halfDayAmMeal
+                      ? [...p.half_day_meal_dates, halfDayAmDateInput].sort()
+                      : p.half_day_meal_dates,
+                  }));
+                  setHalfDayAmDateInput('');
+                  setHalfDayAmMeal(false);
+                }}
+              >
+                新增
+              </Button>
+            </div>
+            {form.half_day_am_dates.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {form.half_day_am_dates.map((d) => (
+                  <span key={d} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs">
+                    {d}
+                    {form.half_day_meal_dates.includes(d) && (
+                      <span className="text-[10px] bg-muted text-muted-foreground px-1 rounded">含餐</span>
+                    )}
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => setForm((p) => ({
+                        ...p,
+                        half_day_am_dates: p.half_day_am_dates.filter((x) => x !== d),
+                        half_day_meal_dates: p.half_day_pm_dates.includes(d)
+                          ? p.half_day_meal_dates
+                          : p.half_day_meal_dates.filter((x) => x !== d),
+                      }))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>下半日日期（下午出席）</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={halfDayPmDateInput}
+                onChange={(e) => setHalfDayPmDateInput(e.target.value)}
+                className="max-w-xs"
+              />
+              <label className="flex items-center gap-1.5 text-sm cursor-pointer whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={halfDayPmMeal}
+                  onChange={(e) => setHalfDayPmMeal(e.target.checked)}
+                  className="rounded border-slate-300 text-teal-600"
+                />
+                含餐
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!halfDayPmDateInput || form.half_day_pm_dates.includes(halfDayPmDateInput)) return;
+                  setForm((p) => ({
+                    ...p,
+                    half_day_pm_dates: [...p.half_day_pm_dates, halfDayPmDateInput].sort(),
+                    half_day_meal_dates: halfDayPmMeal
+                      ? [...p.half_day_meal_dates, halfDayPmDateInput].sort()
+                      : p.half_day_meal_dates,
+                  }));
+                  setHalfDayPmDateInput('');
+                  setHalfDayPmMeal(false);
+                }}
+              >
+                新增
+              </Button>
+            </div>
+            {form.half_day_pm_dates.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {form.half_day_pm_dates.map((d) => (
+                  <span key={d} className="inline-flex items-center gap-1 rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-xs">
+                    {d}
+                    {form.half_day_meal_dates.includes(d) && (
+                      <span className="text-[10px] bg-orange-200 text-orange-700 px-1 rounded">含餐</span>
+                    )}
+                    <button
+                      type="button"
+                      className="hover:text-orange-950"
+                      onClick={() => setForm((p) => ({
+                        ...p,
+                        half_day_pm_dates: p.half_day_pm_dates.filter((x) => x !== d),
+                        half_day_meal_dates: p.half_day_am_dates.includes(d)
+                          ? p.half_day_meal_dates
+                          : p.half_day_meal_dates.filter((x) => x !== d),
+                      }))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

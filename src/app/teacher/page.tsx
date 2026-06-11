@@ -13,7 +13,7 @@ export default async function TeacherPage(props: {
   const searchParams = await props.searchParams;
   const tabParam = searchParams?.tab;
   const viewParam = searchParams?.view;
-  const validTabs = ['leave', 'course', 'purchase', 'departure', 'cancel'] as const;
+  const validTabs = ['leave', 'course', 'purchase', 'departure', 'cancel', 'half_day'] as const;
   const defaultTab = (validTabs.includes((tabParam as typeof validTabs[number]) || 'leave') ? tabParam : 'leave') as typeof validTabs[number];
 
   const session = await createSessionClient();
@@ -158,6 +158,15 @@ export default async function TeacherPage(props: {
       try {
         const parsed = JSON.parse(r.reason);
         reasonStr = `[離校日期: ${parsed.date}] ${parsed.reason}`;
+      } catch (e) {}
+    } else if (r.request_type === 'half_day') {
+      typeStr = '半日異動';
+      detailStr = null;
+      try {
+        const parsed = JSON.parse(r.reason);
+        const typeLabel = parsed.halfDayType === 'PM' ? '下半日' : '上半日';
+        const dates = (parsed.dates ?? []).join('、');
+        reasonStr = `日期：${dates || '—'}　${typeLabel}`;
       } catch (e) {}
     }
 

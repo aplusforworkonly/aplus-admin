@@ -40,7 +40,7 @@ interface TeacherLeaveFormProps {
   courses: Course[];
   courseMonths: Record<string, number[]>;
   courseCapacity?: Record<string, { enrolled: number; max: number }>;
-  defaultTab?: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel';
+  defaultTab?: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel' | 'half_day';
   cancellingIds?: Set<string>;
 }
 
@@ -53,7 +53,7 @@ export default function TeacherLeaveForm({
   defaultTab = 'leave',
   cancellingIds = new Set(),
 }: TeacherLeaveFormProps) {
-  const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure' | 'cancel'>(defaultTab);
+  const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure' | 'cancel' | 'half_day'>(defaultTab);
 
   useEffect(() => {
     setRequestType(defaultTab);
@@ -119,6 +119,12 @@ export default function TeacherLeaveForm({
   // 學生離校專用
   const [departureDate, setDepartureDate] = useState('');
 
+  // 半日異動專用
+  const [halfDayDates, setHalfDayDates] = useState<string[]>([]);
+  const [halfDayType, setHalfDayType] = useState<'AM' | 'PM'>('AM');
+  const [halfDayIncludeMeal, setHalfDayIncludeMeal] = useState(false);
+  const [halfDayDateInput, setHalfDayDateInput] = useState('');
+
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [pending, startTransition] = useTransition();
@@ -167,9 +173,13 @@ export default function TeacherLeaveForm({
     setSelectedCancelLeaveId(null);
     setCancelReason('');
     setCancellableLeaves([]);
+    setHalfDayDates([]);
+    setHalfDayType('AM');
+    setHalfDayIncludeMeal(false);
+    setHalfDayDateInput('');
   }
 
-  function handleTabChange(tab: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel') {
+  function handleTabChange(tab: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel' | 'half_day') {
     setRequestType(tab);
     setSuccess(false);
     setError('');
@@ -229,6 +239,15 @@ export default function TeacherLeaveForm({
         } else if (requestType === 'cancel') {
           if (!selectedCancelLeaveId) throw new Error('請選擇要取消的請假申請');
           await submitCancellationRequest(selectedCancelLeaveId, teacherId, cancelReason);
+        } else if (requestType === 'half_day') {
+          await submitCancelRequest({
+            teacherId,
+            studentId,
+            courseId: null,
+            reason: JSON.stringify({ dates: halfDayDates, halfDayType, includeMeal: halfDayIncludeMeal }),
+            requestType: 'half_day',
+          });
+          setSubmittedCount(1);
         } else if (courseAction === 'cancel') {
           await Promise.all(
             selectedEnrollmentIds.map(enrollId => {
@@ -308,9 +327,11 @@ export default function TeacherLeaveForm({
         ? '✓ 購買物品申請已送出，等待行政處理。'
         : requestType === 'departure'
           ? '✓ 學生離校通知已送出，等待行政審核與結算。'
-          : courseAction === 'cancel'
-            ? `✓ 取消課程申請已送出（共 ${submittedCount} 筆），行政確認後將自動更新合約狀態。`
-            : `✓ 加報課程申請已送出（共 ${submittedCount} 筆），行政確認後將建立候補合約。`;
+          : requestType === 'half_day'
+            ? '✓ 半日異動申請已送出，等待行政確認後生效。'
+            : courseAction === 'cancel'
+              ? `✓ 取消課程申請已送出（共 ${submittedCount} 筆），行政確認後將自動更新合約狀態。`
+              : `✓ 加報課程申請已送出（共 ${submittedCount} 筆），行政確認後將建立候補合約。`;
 
   const needsProof = requestType === 'leave' && (
     (leaveType === '病假' && !!diseaseType && diseaseType !== '以上皆非') ||
@@ -329,12 +350,14 @@ export default function TeacherLeaveForm({
           ? !!studentId && !!purchaseQty
           : requestType === 'departure'
             ? !!studentId && !!departureDate && !!reason
-            : false;
+            : requestType === 'half_day'
+              ? !!studentId && halfDayDates.length > 0
+              : false;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 主 Tab */}
-      {(requestType === 'leave' || requestType === 'course' || requestType === 'cancel') && (
+      {(requestType === 'leave' || requestType === 'course' || requestType === 'cancel' || requestType === 'half_day') && (
         <div className="flex w-full mb-8 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
           <button
             type="button"
@@ -356,6 +379,13 @@ export default function TeacherLeaveForm({
             className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'cancel' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
           >
             取消請假
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('half_day')}
+            className={`flex-1 py-3 transition-all border-l border-slate-200 ${requestType === 'half_day' ? 'bg-teal-900 text-teal-50 font-bold' : 'bg-white text-slate-500 hover:bg-slate-50 font-medium'}`}
+          >
+            半日異動
           </button>
         </div>
       )}
@@ -717,6 +747,76 @@ export default function TeacherLeaveForm({
         </>
       )}
 
+      {/* 半日異動欄位 */}
+      {requestType === 'half_day' && (
+        <>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">出席時段 <span className="text-destructive">*</span></p>
+            <div className="flex gap-4">
+              {(['AM', 'PM'] as const).map((t) => (
+                <label key={t} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="halfDayType"
+                    value={t}
+                    checked={halfDayType === t}
+                    onChange={() => setHalfDayType(t)}
+                    className="accent-teal-700"
+                  />
+                  {t === 'AM' ? '上半日（早上出席）' : '下半日（下午出席）'}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium">半日日期 <span className="text-destructive">*</span></p>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={halfDayDateInput}
+                onChange={(e) => setHalfDayDateInput(e.target.value)}
+                className={`${inputCls} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (halfDayDateInput && !halfDayDates.includes(halfDayDateInput)) {
+                    setHalfDayDates(prev => [...prev, halfDayDateInput].sort());
+                    setHalfDayDateInput('');
+                  }
+                }}
+                className="px-4 h-12 rounded-lg border border-slate-200 bg-white text-sm font-medium text-teal-800 hover:bg-slate-50 transition-colors"
+              >
+                新增
+              </button>
+            </div>
+            {halfDayDates.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {halfDayDates.map((d) => (
+                  <span key={d} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 text-xs text-teal-800">
+                    {d}
+                    <button
+                      type="button"
+                      onClick={() => setHalfDayDates(prev => prev.filter(x => x !== d))}
+                      className="text-teal-400 hover:text-teal-700 leading-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={halfDayIncludeMeal}
+              onCheckedChange={(v) => setHalfDayIncludeMeal(!!v)}
+            />
+            包含午餐（學生用餐後離開）
+          </label>
+        </>
+      )}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       {success ? (
@@ -725,7 +825,7 @@ export default function TeacherLeaveForm({
         </div>
       ) : (
         <Button type="submit" disabled={pending || !isSubmittable} className="w-full h-12 text-base font-bold shadow-md hover:bg-teal-800 bg-teal-900 text-teal-50 active:scale-[0.98] transition-all mt-4">
-          {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : requestType === 'cancel' ? '送出取消請假申請' : requestType === 'purchase' ? '送出購買申請' : requestType === 'departure' ? '送出離校通知' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
+          {pending ? '送出中...' : requestType === 'leave' ? '送出請假通報' : requestType === 'cancel' ? '送出取消請假申請' : requestType === 'purchase' ? '送出購買申請' : requestType === 'departure' ? '送出離校通知' : requestType === 'half_day' ? '送出半日異動申請' : courseAction === 'cancel' ? '送出取消課程申請' : '送出加報課程申請'}
         </Button>
       )}
     </form>

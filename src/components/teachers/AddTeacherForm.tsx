@@ -3,8 +3,8 @@ import { useState, useTransition } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { createTeacher } from '@/actions/teachers';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 export default function AddTeacherForm() {
   const [name, setName] = useState('');
