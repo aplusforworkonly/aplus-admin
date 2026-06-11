@@ -1,19 +1,20 @@
 'use server';
-import { createServerClient, createSessionClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminTask, resolveTaskBySourceId } from '@/actions/admin-tasks';
+import { rebillStudent } from '@/actions/invoices';
+import { getHandledBy } from '@/actions/shared';
 
-async function getHandledBy(supabase: ReturnType<typeof createServerClient>): Promise<string | null> {
-  try {
-    const sessionClient = await createSessionClient();
-    const { data: { user } } = await sessionClient.auth.getUser();
-    if (!user) return null;
-    const { data: t } = await supabase.from('teachers').select('id').eq('user_id', user.id).single();
-    return t?.id ?? null;
-  } catch {
-    return null;
-  }
+function normalizeDate(d: string): string {
+  const m = d.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return d;
+  return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
 }
+
+function mergeAndSort(existing: string[], incoming: string[]): string[] {
+  return Array.from(new Set([...existing, ...incoming.map(normalizeDate)])).sort();
+}
+
 
 export type StudentEnrollment = {
   enrollmentId: string;
@@ -46,7 +47,7 @@ export async function submitCancelRequest(data: {
   enrollmentId?: string | null;
   startDate?: string | null;
   reason: string;
-  requestType: 'cancel' | 'add' | 'purchase' | 'departure';
+  requestType: 'cancel' | 'add' | 'purchase' | 'departure' | 'half_day';
 }) {
   const supabase = createServerClient();
   const requestTypeLabels: Record<string, string> = {
@@ -54,6 +55,7 @@ export async function submitCancelRequest(data: {
     add: '加報課程',
     purchase: '物品購買',
     departure: '離校通知',
+    half_day: '半日異動',
   };
 
   const { data: inserted, error } = await supabase.from('student_requests').insert({
@@ -220,6 +222,33 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
         reference_id: id,
       });
     }
+  } else if (req.request_type === 'half_day') {
+    let parsed: { dates: string[]; halfDayType: 'AM' | 'PM'; includeMeal: boolean } =
+      { dates: [], halfDayType: 'AM', includeMeal: false };
+    try { parsed = JSON.parse(req.reason || '{}'); } catch (e) {}
+
+    const { data: stu } = await supabase
+      .from('students')
+      .select('half_day_am_dates, half_day_pm_dates, half_day_meal_dates')
+      .eq('id', req.student_id)
+      .single();
+
+    const updates: Record<string, string[]> = {};
+    if (parsed.halfDayType === 'PM') {
+      updates.half_day_pm_dates = mergeAndSort(stu?.half_day_pm_dates ?? [], parsed.dates);
+    } else {
+      updates.half_day_am_dates = mergeAndSort(stu?.half_day_am_dates ?? [], parsed.dates);
+    }
+    if (parsed.includeMeal) {
+      updates.half_day_meal_dates = mergeAndSort(stu?.half_day_meal_dates ?? [], parsed.dates);
+    }
+
+    await supabase.from('students').update(updates).eq('id', req.student_id);
+
+    const billingMonths = [...new Set(parsed.dates.map((d) => normalizeDate(d).substring(0, 7)))];
+    for (const bm of billingMonths) {
+      await rebillStudent(req.student_id, bm).catch(() => {});
+    }
   }
 
   const handledBy = await getHandledBy(supabase);
@@ -240,6 +269,9 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
   revalidatePath('/admin/requests');
   revalidatePath('/admin/classes');
   revalidatePath('/enrollments');
+  revalidatePath('/students');
+  revalidatePath('/teacher');
+  revalidatePath('/admin/classes/matrix');
 }
 
 export async function rejectCancelRequest(id: string) {

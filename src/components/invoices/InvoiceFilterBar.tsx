@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation';
 
 type Props = {
-  campuses: string[];
+  campuses: readonly string[];
   grades: string[];
   tutors: { id: string; name: string }[];
   current: { status: string; campus: string; grade: string; tutorId: string };

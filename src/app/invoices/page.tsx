@@ -10,6 +10,7 @@ import InvoiceFilterBar from '@/components/invoices/InvoiceFilterBar';
 import RebillButton from '@/components/invoices/RebillButton';
 import CancelInvoiceButton from '@/components/invoices/CancelInvoiceButton';
 import { AlertTriangle } from 'lucide-react';
+import { CAMPUSES } from '@/lib/constants';
 
 const STATUS_VARIANT: Record<InvoiceStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   已結清: 'default',
@@ -17,7 +18,6 @@ const STATUS_VARIANT: Record<InvoiceStatus, 'default' | 'secondary' | 'destructi
   未繳: 'destructive',
 };
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const GRADE_ORDER = ['大班升小一', '小一', '小二', '小三', '小四', '小五', '小六'];
 
 export default async function InvoicesPage({

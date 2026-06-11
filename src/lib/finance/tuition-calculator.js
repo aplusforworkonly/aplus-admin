@@ -2,13 +2,13 @@
 const CALENDAR = {
   july: {
     schoolDays: 18,
-    nonRefundableDates: new Set(['2026-07-03']), // 週五托育日，請假不退費
-    activityDates: new Set(['2026-07-10','2026-07-17','2026-07-23','2026-07-24','2026-07-31']),
+    nonRefundableDates: new Set(),
+    activityDates: new Set(['2026-07-10','2026-07-17','2026-07-23','2026-07-24','2026-07-31']), // 托育日，請假不退費
   },
   august: {
     schoolDays: 16,
     nonRefundableDates: new Set(),
-    activityDates: new Set(['2026-08-07','2026-08-14','2026-08-21','2026-08-28','2026-08-31']),
+    activityDates: new Set(['2026-08-07','2026-08-14','2026-08-21','2026-08-28']), // 托育日，請假不退費
   },
 };
 

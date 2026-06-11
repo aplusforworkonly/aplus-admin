@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createServerClient } from '@/lib/supabase/server';
 import { TuitionCalculator } from '@/lib/finance/tuition-calculator';
 import { getGrade } from '@/lib/grade';
@@ -6,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BillingPreviewTable from '@/components/invoices/BillingPreviewTable';
 import type { BillingRow } from '@/components/invoices/BillingPreviewTable';
 import Link from 'next/link';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 const GRADE_ORDER = ['大班升小一', '小一', '小二', '小三', '小四', '小五', '小六'];
 
 function filterHref(billingMonth: string, campus: string, grade: string) {
@@ -54,19 +56,24 @@ export default async function GenerateInvoicesPage({
   const supabase = createServerClient();
   const [year, mon] = billingMonth.split('-').map(Number);
   const startDate = `${billingMonth}-01`;
-  const endDate = new Date(year, mon, 1).toISOString().split('T')[0];
+  const endDate = mon === 12 ? `${year + 1}-01-01` : `${year}-${String(mon + 1).padStart(2, '0')}-01`;
 
-  const [{ data: enrollments }, { data: students }, { data: leaves }, { data: existing }, { data: allInvoices }] =
+  // Supabase 有 1000-row 伺服器端硬限制，enrollment 需分兩頁平行取得
+  const enrollQuery = () => supabase
+    .from('enrollments')
+    .select('id, student_id, start_date, courses(name, course_type, billing_cycle, base_price)')
+    .eq('status', '生效')
+    .lt('start_date', endDate)
+    .or(`end_date.is.null,end_date.gte.${startDate}`)
+    .order('id');
+
+  const [{ data: enrollPage0 }, { data: enrollPage1 }, studentsResult, { data: leaves }, { data: existing }, { data: allInvoices }] =
     await Promise.all([
-      supabase
-        .from('enrollments')
-        .select('id, student_id, courses(name, course_type, base_price)')
-        .eq('status', '生效')
-        .gte('start_date', startDate)
-        .lt('start_date', endDate),
+      enrollQuery().range(0, 999),
+      enrollQuery().range(1000, 1999),
       supabase
         .from('students')
-        .select('id, name, english_name, is_school_student, campus, enrollment_date, main_tutor_id')
+        .select('id, name, english_name, is_school_student, campus, enrollment_date, main_tutor_id, july_half_day, august_half_day, half_day_am_dates, half_day_pm_dates, half_day_meal_dates')
         .order('name'),
       supabase
         .from('student_leaves')
@@ -82,8 +89,18 @@ export default async function GenerateInvoicesPage({
         .select('id, student_id'),
     ]);
 
+  const enrollments = [...(enrollPage0 ?? []), ...(enrollPage1 ?? [])];
+  const students = studentsResult.data;
+
   const alreadyBilled = new Set((existing ?? []).map((i) => i.student_id));
-  const filteredEnrollments = (enrollments ?? []).filter((e) => (e.courses as any)?.course_type !== 'afternoon_basic');
+  const filteredEnrollments = enrollments.filter((e) => {
+    const course = e.courses as any;
+    if (course?.course_type === 'afternoon_basic') return false;
+    // camp + monthly（如 YLE、真人口說）：單一課程跨月延續，不限開始月份
+    if (course?.billing_cycle === 'monthly' && course?.course_type === 'camp') return true;
+    // 其他（main_course monthly 有各自月份版本、one_time）：只算當月新開始的
+    return (e as any).start_date >= startDate;
+  });
   const enrolledIds = new Set(filteredEnrollments.map((e) => e.student_id));
   const eligibleStudents = (students ?? []).filter((s) => enrolledIds.has(s.id));
 
@@ -126,10 +143,18 @@ export default async function GenerateInvoicesPage({
     const leaveDates = (leaves ?? [])
       .filter((l) => l.student_id === student.id)
       .map((l) => l.leave_date);
+    const halfDayConfig = {
+      julyFullHalf:      (student as any).july_half_day === 'full_month',
+      julyFullHalfMeal:  (student as any).july_half_day === 'full_month_meal',
+      augustFullHalf:    (student as any).august_half_day === 'full_month',
+      augustFullHalfMeal: (student as any).august_half_day === 'full_month_meal',
+      halfDayDates:      Array.from(new Set([...((student as any).half_day_am_dates ?? []), ...((student as any).half_day_pm_dates ?? [])])),
+      halfDayMealDates:  (student as any).half_day_meal_dates ?? [],
+    };
     const items = new TuitionCalculator({
       enrollments: stuEnrollments,
       leaveDates,
-      halfDayConfig: {},
+      halfDayConfig,
       attendance: {},
       isSchoolStudent: student.is_school_student,
       chargedMaterialFees: ylaChargedStudents.has(student.id) ? ['YLE教材費'] : [],

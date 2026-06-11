@@ -42,15 +42,15 @@ export async function rebillStudent(studentId: string, billingMonth: string) {
   // Fetch current enrollments
   const { data: enrollments } = await supabase
     .from('enrollments')
-    .select('id, student_id, courses(name, course_type, base_price)')
+    .select('id, student_id, start_date, courses(name, course_type, billing_cycle, base_price)')
     .eq('student_id', studentId)
     .eq('status', '生效')
-    .gte('start_date', startDate)
-    .lt('start_date', endDate);
+    .lt('start_date', endDate)
+    .or(`end_date.is.null,end_date.gte.${startDate}`);
 
   const { data: student } = await supabase
     .from('students')
-    .select('id, name, is_school_student')
+    .select('id, name, is_school_student, july_half_day, august_half_day, half_day_am_dates, half_day_pm_dates, half_day_meal_dates')
     .eq('id', studentId)
     .single();
   if (!student) throw new Error('找不到學生');
@@ -85,17 +85,31 @@ export async function rebillStudent(studentId: string, billingMonth: string) {
     .eq('student_id', studentId)
     .eq('status', 'pending_billing');
 
-  const studentEnrollments = (enrollments ?? []).map((e: any) => ({
+  const billingEnrollments = (enrollments ?? []).filter((e: any) => {
+    const c = e.courses;
+    if (!c) return false;
+    if (c.billing_cycle === 'monthly' && c.course_type === 'camp') return true;
+    return e.start_date >= startDate;
+  });
+  const studentEnrollments = billingEnrollments.map((e: any) => ({
     courseName: e.courses.name,
     courseType: e.courses.course_type,
     basePrice: e.courses.base_price,
     actualFee: e.courses.base_price,
   }));
 
+  const halfDayConfig = {
+    julyFullHalf:      (student as any).july_half_day === 'full_month',
+    julyFullHalfMeal:  (student as any).july_half_day === 'full_month_meal',
+    augustFullHalf:    (student as any).august_half_day === 'full_month',
+    augustFullHalfMeal: (student as any).august_half_day === 'full_month_meal',
+    halfDayDates:      Array.from(new Set([...((student as any).half_day_am_dates ?? []), ...((student as any).half_day_pm_dates ?? [])])),
+    halfDayMealDates:  (student as any).half_day_meal_dates ?? [],
+  };
   const calc = new TuitionCalculator({
     enrollments: studentEnrollments,
     leaveDates: (leaves ?? []).map((l: any) => l.leave_date),
-    halfDayConfig: {},
+    halfDayConfig,
     attendance: {},
     isSchoolStudent: student.is_school_student,
     chargedMaterialFees: ylaCharged ? ['YLE教材費'] : [],
@@ -115,7 +129,7 @@ export async function rebillStudent(studentId: string, billingMonth: string) {
       paid_amount: 0,
       status: '未繳',
       due_date: dueDate,
-      enrollment_ids: (enrollments ?? []).map((e: any) => e.id),
+      enrollment_ids: billingEnrollments.map((e: any) => e.id),
     })
     .select('id')
     .single();
@@ -167,19 +181,24 @@ export async function generateMonthlyInvoices(billingMonth: string) {
   // Load active enrollments for the month
   const { data: enrollments, error: enErr } = await supabase
     .from('enrollments')
-    .select('student_id, course_id, campus, status, courses(name, course_type, base_price)')
+    .select('student_id, course_id, campus, status, start_date, courses(name, course_type, billing_cycle, base_price)')
     .eq('status', '生效')
-    .gte('start_date', startDate)
-    .lt('start_date', endDate);
+    .lt('start_date', endDate)
+    .or(`end_date.is.null,end_date.gte.${startDate}`);
   if (enErr) throw new Error(enErr.message);
-  const billingEnrollments = (enrollments ?? []).filter((e) => (e.courses as any)?.course_type !== 'afternoon_basic');
+  const billingEnrollments = (enrollments ?? []).filter((e) => {
+    const course = e.courses as any;
+    if (course?.course_type === 'afternoon_basic') return false;
+    if (course?.billing_cycle === 'monthly' && course?.course_type === 'camp') return true;
+    return (e as any).start_date >= startDate;
+  });
   if (!billingEnrollments.length) return { created: 0, skipped: 0 };
 
   // Load student info
   const studentIds = [...new Set(billingEnrollments.map((e) => e.student_id))];
   const { data: students, error: stErr } = await supabase
     .from('students')
-    .select('id, name, is_school_student')
+    .select('id, name, is_school_student, july_half_day, august_half_day, half_day_am_dates, half_day_pm_dates, half_day_meal_dates')
     .in('id', studentIds);
   if (stErr) throw new Error(stErr.message);
 
@@ -250,10 +269,18 @@ export async function generateMonthlyInvoices(billingMonth: string) {
       .filter((l) => l.student_id === student.id)
       .map((l) => l.leave_date);
 
+    const halfDayConfig = {
+      julyFullHalf:      (student as any).july_half_day === 'full_month',
+      julyFullHalfMeal:  (student as any).july_half_day === 'full_month_meal',
+      augustFullHalf:    (student as any).august_half_day === 'full_month',
+      augustFullHalfMeal: (student as any).august_half_day === 'full_month_meal',
+      halfDayDates:      Array.from(new Set([...((student as any).half_day_am_dates ?? []), ...((student as any).half_day_pm_dates ?? [])])),
+      halfDayMealDates:  (student as any).half_day_meal_dates ?? [],
+    };
     const calc = new TuitionCalculator({
       enrollments: studentEnrollments,
       leaveDates,
-      halfDayConfig: {},
+      halfDayConfig,
       attendance: {},
       isSchoolStudent: student.is_school_student,
       chargedMaterialFees: ylaChargedStudents.has(student.id) ? ['YLE教材費'] : [],

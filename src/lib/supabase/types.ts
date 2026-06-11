@@ -8,6 +8,8 @@ export type EnrollmentStatus = '生效' | '候補' | '退班' | '已結業' | '�
 export type CourseType = 'main_course' | 'camp' | 'trip' | 'afternoon_basic';
 export type BillingCycle = 'monthly' | 'quarterly' | 'one_time';
 
+export type HalfDayType = 'none' | 'full_month' | 'full_month_meal';
+
 export interface Student {
   id: string;
   name: string;
@@ -23,6 +25,11 @@ export interface Student {
   notes: string | null;
   leave_note: string | null;
   registration_note: string | null;
+  july_half_day: HalfDayType;
+  august_half_day: HalfDayType;
+  half_day_am_dates: string[];
+  half_day_pm_dates: string[];
+  half_day_meal_dates: string[];
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +130,7 @@ export interface Class {
   course_id: string | null;
   academic_year: string | null;
   term: string | null;
+  location: string | null;
   status: 'active' | 'archived';
   created_at: string;
   updated_at: string;
@@ -212,4 +220,36 @@ export interface AdminTask {
 export interface AdminTaskWithRelations extends AdminTask {
   assigned_teacher?: { id: string; name: string } | null;
   sub_tasks?: AdminTask[];
+}
+
+// ============================================================
+// Schedule
+// ============================================================
+
+export interface ClassSchedule {
+  id: string;
+  class_id: string;
+  /** 0=週日 (Sun), 1=週一 (Mon) ... 6=週六 (Sat)，嚴格對齊 JS/PostgreSQL 標準 */
+  day_of_week: number;
+  start_time: string; // 'HH:MM:SS'
+  end_time: string;
+  valid_from: string | null;
+  valid_until: string | null;
+  created_at: string;
+}
+
+/** 時間軸元件使用的單一課程區塊 */
+export interface ScheduleSlot {
+  class_id: string;
+  class_name: string;
+  course_name: string;
+  start_time: string; // 'HH:MM:SS'
+  end_time: string;
+  campus: string;
+  location: string | null;
+}
+
+/** get_admin_daily_schedule RPC 回傳型別 */
+export interface AdminScheduleSlot extends ScheduleSlot {
+  enrolled_count: number;
 }
