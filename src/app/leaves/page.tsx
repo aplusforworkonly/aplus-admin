@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ApproveButtons from '@/components/leaves/ApproveButtons';
 import CancelButton from '@/components/leaves/CancelButton';
 import Link from 'next/link';
+import { CAMPUSES } from '@/lib/constants';
 
-const CAMPUSES = ['文府總校', '龍華校', '左新校'];
 
 export default async function LeavesPage({
   searchParams,
@@ -39,7 +39,7 @@ export default async function LeavesPage({
       .order('created_at'),
     supabase
       .from('leave_requests')
-      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, handled_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name, english_name)')
+      .select('id, status, request_type, leave_date, leave_date_end, leave_type, reason, handled_at, created_at, disease_type, proof_file_url, students(name, english_name), teachers!handled_by(name, english_name)')
       .in('status', ['approved', 'rejected', 'cancelled'])
       .order('handled_at', { ascending: false })
       .limit(50),
@@ -107,6 +107,20 @@ export default async function LeavesPage({
     '其他': 'bg-muted text-muted-foreground',
   };
 
+  // 台北時間 6/3 整天含括在內，截止點設為 6/4 凌晨 = UTC 2026-06-03T16:00:00Z
+  const SUMMER_CAMP_FEE_CUTOFF = new Date('2026-06-04T00:00:00+08:00');
+
+  function summerCampFeeWillAdjust(r: {
+    request_type: string;
+    leave_date: string | null;
+    created_at: string;
+  }): boolean | null {
+    if (r.request_type !== '請假') return null;
+    const d = r.leave_date ?? '';
+    if (!d.startsWith('2026-07') && !d.startsWith('2026-08')) return null;
+    return new Date(r.created_at) < SUMMER_CAMP_FEE_CUTOFF;
+  }
+
   const months = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 2 + i, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -150,6 +164,16 @@ export default async function LeavesPage({
         </div>
       </div>
 
+      <div className="flex justify-end">
+        <a
+          href="/api/leaves/export-fee-adjustments"
+          className="text-sm px-3 py-1.5 rounded border border-input hover:bg-muted transition-colors"
+          download
+        >
+          匯出夏令營退費名單 Excel
+        </a>
+      </div>
+
       {/* 待審核 */}
       {filteredPending.length > 0 && (
         <Card className="border-yellow-300">
@@ -190,6 +214,13 @@ export default async function LeavesPage({
                             {r.disease_type}
                           </span>
                         )}
+                        {(() => {
+                          const adj = summerCampFeeWillAdjust(r);
+                          if (adj === null) return null;
+                          return adj
+                            ? <span className="text-xs px-1.5 py-0.5 rounded border bg-green-50 text-green-700 border-green-200">會退費</span>
+                            : <span className="text-xs px-1.5 py-0.5 rounded border bg-gray-100 text-gray-500 border-gray-300">不影響費用</span>;
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
@@ -328,6 +359,13 @@ export default async function LeavesPage({
                         {r.disease_type && (
                           <span className="text-xs text-red-600">{r.disease_type}</span>
                         )}
+                        {(() => {
+                          const adj = summerCampFeeWillAdjust(r);
+                          if (adj === null) return null;
+                          return adj
+                            ? <span className="text-xs px-1.5 py-0.5 rounded border bg-green-50 text-green-700 border-green-200">會退費</span>
+                            : <span className="text-xs px-1.5 py-0.5 rounded border bg-gray-100 text-gray-500 border-gray-300">不影響費用</span>;
+                        })()}
                         {r.proof_file_url && (
                           <a href={r.proof_file_url} target="_blank" rel="noopener noreferrer"
                             className="text-xs text-blue-600 hover:underline">
