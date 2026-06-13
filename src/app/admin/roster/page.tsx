@@ -14,7 +14,7 @@ export default async function AdminRosterPage() {
   ] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name, english_name, enrollment_date, main_tutor_id, campus, registration_note, leave_note, program_type, is_school_student, no_summer_enrollment')
+      .select('id, name, english_name, enrollment_date, main_tutor_id, campus, registration_note, leave_note, program_type, is_school_student, no_summer_enrollment, summer_form_responded')
       .eq('status', '就讀中')
       .order('name'),
     supabase
@@ -87,14 +87,10 @@ export default async function AdminRosterPage() {
     const month = courseMonth(c.name, (e as any).start_date);
     const entry = { name: c.name, order: COURSE_TYPE_ORDER[c.course_type] ?? 99 };
     const sid = (e as any).student_id;
-    // camp + monthly（YLE、真人口說）：同時顯示在 7 月和 8 月欄
-    const isMonthlycamp = c.billing_cycle === 'monthly' && c.course_type === 'camp';
     if (month === '07') {
       julyRaw[sid] = [...(julyRaw[sid] ?? []), entry];
-      if (isMonthlycamp) augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
     } else if (month === '08') {
       augustRaw[sid] = [...(augustRaw[sid] ?? []), entry];
-      if (isMonthlycamp) julyRaw[sid] = [...(julyRaw[sid] ?? []), entry];
     }
   }
   function dedupeEntries(entries: { name: string; order: number }[]) {
@@ -148,6 +144,7 @@ export default async function AdminRosterPage() {
       programType: s.program_type ?? null,
       isSchoolStudent: s.is_school_student ?? false,
       noSummerEnrollment: s.no_summer_enrollment ?? false,
+      summerFormResponded: s.summer_form_responded ?? false,
     };
   });
 

@@ -4,8 +4,8 @@ export type InvoiceStatus = '未繳' | '部分繳清' | '已結清';
 export type LineItemType = '常規學費' | '附加費' | '單次折抵';
 export type RelationshipType = '父' | '母' | '其他';
 export type CampusType = '文府總校' | '龍華校' | '左新校';
-export type EnrollmentStatus = '生效' | '候補' | '退班' | '已結業' | '待審核';
-export type CourseType = 'main_course' | 'camp' | 'trip' | 'afternoon_basic';
+export type EnrollmentStatus = '生效' | '候補' | '退班' | '已結業';
+export type CourseType = 'main_course' | 'camp' | 'trip' | 'afternoon_basic' | 'material';
 export type BillingCycle = 'monthly' | 'quarterly' | 'one_time';
 
 export type HalfDayType = 'none' | 'full_month' | 'full_month_meal';
@@ -118,7 +118,7 @@ export interface StudentWithParents extends Student {
   }>;
 }
 
-export type ClassCategory = 'homeroom' | 'english_core' | 'elective';
+export type ClassCategory = 'homeroom' | 'english_core' | 'elective' | 'camp';
 
 export interface Class {
   id: string;
@@ -247,6 +247,7 @@ export interface ScheduleSlot {
   end_time: string;
   campus: string;
   location: string | null;
+  category: string | null;
 }
 
 /** get_admin_daily_schedule RPC 回傳型別 */

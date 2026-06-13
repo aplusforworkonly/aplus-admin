@@ -57,8 +57,8 @@ export async function batchImportClassStudents(rows: CsvRow[], categories: strin
       continue;
     }
 
-    // 2. 配對教學班（homeroom）
-    if (categories.includes('homeroom') && row.teacher.trim() && row.teacher.trim() !== '單上英語') {
+    // 2. 配對英語程度班（english_core）
+    if (categories.includes('english_core') && row.teacher.trim() && row.teacher.trim() !== '單上英語') {
       const normalized = normalizeTeacherName(row.teacher);
       const teacher = teachers.find((t) => {
         const nameNorm = (t.name ?? '').toLowerCase();
@@ -69,16 +69,16 @@ export async function batchImportClassStudents(rows: CsvRow[], categories: strin
       if (!teacher) {
         errors.push({ name: studentName, reason: `找不到老師「${row.teacher}」` });
       } else {
-        const homeroom = classes.find(
-          (c) => c.category === 'homeroom' && c.teacher_id === teacher.id
+        const englishClass = classes.find(
+          (c) => c.category === 'english_core' && c.teacher_id === teacher.id
         );
-        if (!homeroom) {
-          errors.push({ name: studentName, reason: `找不到 ${row.teacher} 的教學班` });
+        if (!englishClass) {
+          errors.push({ name: studentName, reason: `找不到 ${row.teacher} 的英語程度班` });
         } else {
-          const key = `${homeroom.id}:${student.id}`;
+          const key = `${englishClass.id}:${student.id}`;
           if (!seen.has(key)) {
             seen.add(key);
-            toInsert.push({ class_id: homeroom.id, student_id: student.id });
+            toInsert.push({ class_id: englishClass.id, student_id: student.id });
           }
         }
       }

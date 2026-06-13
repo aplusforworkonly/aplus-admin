@@ -21,6 +21,11 @@ function shortCourseName(name: string): string {
   return name.replace(/^\d+\/\d+[–\-~～]\d+\/\d+\s*[｜|]\s*/, '').trim() || name;
 }
 
+function isEnglishCourse(category: string | null, name: string): boolean {
+  if (category === 'homeroom' || category === 'english_core') return true;
+  return shortCourseName(name).includes('英語');
+}
+
 export function WeeklyTimeline({
   days,
 }: {
@@ -90,9 +95,16 @@ export function WeeklyTimeline({
                       className="absolute left-1 right-1 bg-blue-50 border border-blue-300 rounded-md px-1.5 py-1 overflow-hidden"
                       style={{ top: `${top}%`, height: `${height}%` }}
                     >
-                      <p className="text-[11px] font-semibold text-blue-800 truncate leading-tight">
-                        {shortCourseName(slot.course_name)}
-                      </p>
+                      {isEnglishCourse(slot.category, slot.course_name) ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-blue-800 leading-tight">英語課</p>
+                          <p className="text-[10px] text-blue-600 truncate leading-tight">{slot.class_name}</p>
+                        </>
+                      ) : (
+                        <p className="text-[11px] font-semibold text-blue-800 truncate leading-tight">
+                          {shortCourseName(slot.course_name)}
+                        </p>
+                      )}
                       <p className="text-[10px] text-blue-400 leading-tight">
                         時間 {formatTime(slot.start_time)}–{formatTime(slot.end_time)}
                       </p>

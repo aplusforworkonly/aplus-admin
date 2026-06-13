@@ -10,7 +10,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { updateEnrollmentStatus, approveAllPending, deleteAllPendingDuplicates } from '@/actions/enrollments';
+import { updateEnrollmentStatus } from '@/actions/enrollments';
 import type { EnrollmentStatus, CampusType } from '@/lib/supabase/types';
 
 type EnrollmentRow = {
@@ -26,18 +26,18 @@ type EnrollmentRow = {
 };
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  生效: 'default', 候補: 'outline', 退班: 'destructive', 已結業: 'secondary', 待審核: 'secondary',
+  生效: 'default', 候補: 'outline', 退班: 'destructive', 已結業: 'secondary',
 };
 
 const NEXT_STATUS: Partial<Record<EnrollmentStatus, EnrollmentStatus>> = {
-  待審核: '生效', 候補: '生效', 生效: '退班',
+  候補: '生效', 生效: '退班',
 };
 
 const NEXT_LABEL: Partial<Record<EnrollmentStatus, string>> = {
-  待審核: '轉生效', 候補: '轉生效', 生效: '退班',
+  候補: '轉生效', 生效: '退班',
 };
 
-const DEFAULT_STATUS = '生效,待審核,候補';
+const DEFAULT_STATUS = '生效,候補';
 
 function FilterBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -106,8 +106,6 @@ export default function EnrollmentTable({
     startTransition(() => updateEnrollmentStatus(id, next));
   }
 
-  const pendingCount = enrollments.filter((e) => e.status === '待審核').length;
-
   const filtered = enrollments.filter((e) => {
     const matchSearch =
       !searchParam ||
@@ -140,7 +138,6 @@ export default function EnrollmentTable({
         <div className="flex gap-1 flex-wrap">
           {([
             { value: DEFAULT_STATUS, label: '進行中' },
-            { value: '待審核', label: '待審核' },
             { value: '生效', label: '生效' },
             { value: '候補', label: '候補' },
             { value: '退班', label: '退班' },
@@ -152,17 +149,6 @@ export default function EnrollmentTable({
             </FilterBtn>
           ))}
         </div>
-
-        {pendingCount > 0 && (
-          <>
-            <Button variant="outline" size="sm" disabled={pending} onClick={() => startTransition(() => approveAllPending())} className="text-teal-700 border-teal-300 hover:bg-teal-50">
-              {pending ? '處理中…' : `全部轉生效（${pendingCount} 筆）`}
-            </Button>
-            <Button variant="outline" size="sm" disabled={pending} onClick={() => startTransition(async () => { await deleteAllPendingDuplicates(); })} className="text-red-600 border-red-300 hover:bg-red-50">
-              {pending ? '處理中…' : '刪除重複待審核'}
-            </Button>
-          </>
-        )}
 
         <div className="flex gap-1">
           {(['all', '文府總校', '龍華校', '左新校'] as const).map((c) => (

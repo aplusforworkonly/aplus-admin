@@ -61,6 +61,7 @@ export async function GET() {
       .from('leave_requests')
       .select('id, leave_date, leave_date_end, leave_type, reason, status, created_at, student_id, students(name, english_name, campus, enrollment_date, main_tutor_id, is_school_student)')
       .eq('request_type', '請假')
+      .in('status', ['pending', 'approved'])
       .gte('leave_date', '2026-07-01')
       .lt('leave_date', '2026-09-01')
       .order('leave_date'),

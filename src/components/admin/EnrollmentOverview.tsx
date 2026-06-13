@@ -28,6 +28,7 @@ export type EnrollmentRow = {
   programType: string | null;
   isSchoolStudent: boolean;
   noSummerEnrollment: boolean;
+  summerFormResponded: boolean;
 };
 
 const PROGRAM_TYPES = ['全日班', '單上英語', '其他'];
@@ -334,7 +335,7 @@ export default function EnrollmentOverview({
             )}
             {filtered.map((r) => {
               const hasAnyCourse = r.julyEnrollments.length > 0 || r.augustEnrollments.length > 0;
-              const hasCourse = hasAnyCourse || r.noSummerEnrollment;
+              const hasCourse = hasAnyCourse || r.noSummerEnrollment || r.summerFormResponded;
               const isPendingProgram = r.id in pendingProgramTypes;
               const isPendingTutor = r.id in pendingTutors;
               const isPending = isPendingProgram || isPendingTutor;
@@ -408,8 +409,8 @@ export default function EnrollmentOverview({
                       )
                     )}
                   </TableCell>
-                  <TableCell><CourseList courses={r.julyEnrollments} month="七月" noEnrollment={r.noSummerEnrollment || (r.augustEnrollments.length > 0 && r.julyEnrollments.length === 0)} /></TableCell>
-                  <TableCell><CourseList courses={r.augustEnrollments} month="八月" noEnrollment={r.noSummerEnrollment || (r.julyEnrollments.length > 0 && r.augustEnrollments.length === 0)} /></TableCell>
+                  <TableCell><CourseList courses={r.julyEnrollments} month="七月" noEnrollment={r.noSummerEnrollment || r.summerFormResponded || (r.augustEnrollments.length > 0 && r.julyEnrollments.length === 0)} /></TableCell>
+                  <TableCell><CourseList courses={r.augustEnrollments} month="八月" noEnrollment={r.noSummerEnrollment || r.summerFormResponded || (r.julyEnrollments.length > 0 && r.augustEnrollments.length === 0)} /></TableCell>
                   <TableCell><LeaveList leaves={r.leaves} /></TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">

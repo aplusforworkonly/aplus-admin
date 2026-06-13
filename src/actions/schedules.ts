@@ -38,6 +38,7 @@ export async function getStudentDailySchedule(
         name,
         campus,
         location,
+        category,
         course_id,
         courses(name),
         class_schedules(id, day_of_week, start_time, end_time, valid_from, valid_until)
@@ -67,6 +68,7 @@ export async function getStudentDailySchedule(
       name: string;
       campus: string;
       location: string | null;
+      category: string | null;
       course_id: string | null;
       courses: { name: string } | null;
       class_schedules: Array<{
@@ -102,6 +104,7 @@ export async function getStudentDailySchedule(
         end_time:    sch.end_time,
         campus:      cls.campus,
         location:    cls.location ?? null,
+        category:    cls.category ?? null,
       }));
   });
 

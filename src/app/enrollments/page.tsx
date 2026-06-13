@@ -3,8 +3,8 @@ import { createServerClient } from '@/lib/supabase/server';
 import EnrollmentTable from '@/components/enrollments/EnrollmentTable';
 
 const PAGE_SIZE = 100;
-const DEFAULT_STATUSES = ['生效', '待審核', '候補'];
-const ALL_STATUSES = ['生效', '待審核', '候補', '退班', '已結業'];
+const DEFAULT_STATUSES = ['生效', '候補'];
+const ALL_STATUSES = ['生效', '候補', '退班', '已結業'];
 
 type Props = { searchParams: Promise<Record<string, string | undefined>> };
 

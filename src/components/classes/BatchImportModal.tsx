@@ -17,12 +17,13 @@ const CATEGORIES = [
   { value: 'homeroom', label: '教學班' },
   { value: 'english_core', label: '英語核心' },
   { value: 'elective', label: '選修' },
+  { value: 'camp', label: '冬夏令營課程' },
 ];
 
 export default function BatchImportModal({ onClose }: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<CsvRow[]>([]);
-  const [categories, setCategories] = useState<Set<string>>(new Set(['homeroom', 'english_core', 'elective']));
+  const [categories, setCategories] = useState<Set<string>>(new Set(['homeroom', 'english_core', 'elective', 'camp']));
   const [parseError, setParseError] = useState('');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [pending, startTransition] = useTransition();

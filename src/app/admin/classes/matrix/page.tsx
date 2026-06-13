@@ -17,7 +17,7 @@ const TABS = [
 type TabKey = typeof TABS[number]['key'];
 
 const COURSE_TYPE_TO_CATEGORY: Record<string, string> = {
-  main_course: 'homeroom',
+  main_course: 'english_core',
   camp: 'camp',
   trip: 'camp',
   afternoon_basic: 'camp',
