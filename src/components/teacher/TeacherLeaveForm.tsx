@@ -41,7 +41,7 @@ interface TeacherLeaveFormProps {
   courseMonths: Record<string, number[]>;
   courseCapacity?: Record<string, { enrolled: number; max: number }>;
   defaultTab?: 'leave' | 'course' | 'purchase' | 'departure' | 'cancel' | 'half_day';
-  cancellingIds?: Set<string>;
+  cancellingIds?: string[];
 }
 
 export default function TeacherLeaveForm({
@@ -51,8 +51,9 @@ export default function TeacherLeaveForm({
   courseMonths,
   courseCapacity,
   defaultTab = 'leave',
-  cancellingIds = new Set(),
+  cancellingIds = [],
 }: TeacherLeaveFormProps) {
+  const cancellingIdsSet = new Set(cancellingIds);
   const [requestType, setRequestType] = useState<'leave' | 'course' | 'purchase' | 'departure' | 'cancel' | 'half_day'>(defaultTab);
 
   useEffect(() => {
@@ -451,7 +452,7 @@ export default function TeacherLeaveForm({
                   const dateLabel = l.leave_date_end && l.leave_date_end !== l.leave_date
                     ? `${l.leave_date} ～ ${l.leave_date_end}`
                     : l.leave_date;
-                  const isAlreadyCancelling = cancellingIds.has(l.id);
+                  const isAlreadyCancelling = cancellingIdsSet.has(l.id);
                   return (
                     <label
                       key={l.id}

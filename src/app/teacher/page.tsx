@@ -247,7 +247,7 @@ export default async function TeacherPage(props: {
 
           {/* 非督導查看模式才顯示表單 */}
           {!isViewingOther && (
-            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} courseCapacity={courseCapacity} defaultTab={defaultTab} cancellingIds={cancellingIds} />
+            <TeacherLeaveForm teacherId={selfTeacher.id} students={students} courses={courses} courseMonths={courseMonths} courseCapacity={courseCapacity} defaultTab={defaultTab} cancellingIds={Array.from(cancellingIds)} />
           )}
         </CardContent>
       </Card>
