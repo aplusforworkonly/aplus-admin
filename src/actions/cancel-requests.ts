@@ -47,7 +47,7 @@ export async function submitCancelRequest(data: {
   enrollmentId?: string | null;
   startDate?: string | null;
   reason: string;
-  requestType: 'cancel' | 'add' | 'purchase' | 'departure' | 'half_day';
+  requestType: 'cancel' | 'add' | 'purchase' | 'departure' | 'half_day' | 'meal';
 }) {
   const supabase = createServerClient();
   const requestTypeLabels: Record<string, string> = {
@@ -56,6 +56,7 @@ export async function submitCancelRequest(data: {
     purchase: '物品購買',
     departure: '離校通知',
     half_day: '半日異動',
+    meal: '新增餐點',
   };
 
   const { data: inserted, error } = await supabase.from('student_requests').insert({
@@ -244,6 +245,23 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
     }
 
     await supabase.from('students').update(updates).eq('id', req.student_id);
+
+    const billingMonths = [...new Set(parsed.dates.map((d) => normalizeDate(d).substring(0, 7)))];
+    for (const bm of billingMonths) {
+      await rebillStudent(req.student_id, bm).catch(() => {});
+    }
+  } else if (req.request_type === 'meal') {
+    let parsed: { dates: string[] } = { dates: [] };
+    try { parsed = JSON.parse(req.reason || '{}'); } catch (e) {}
+
+    const { data: stu } = await supabase
+      .from('students')
+      .select('half_day_meal_dates')
+      .eq('id', req.student_id)
+      .single();
+
+    const newMealDates = mergeAndSort(stu?.half_day_meal_dates ?? [], parsed.dates);
+    await supabase.from('students').update({ half_day_meal_dates: newMealDates }).eq('id', req.student_id);
 
     const billingMonths = [...new Set(parsed.dates.map((d) => normalizeDate(d).substring(0, 7)))];
     for (const bm of billingMonths) {

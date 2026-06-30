@@ -14,6 +14,7 @@ const REQUEST_TYPES: { value: string; label: string }[] = [
   { value: 'departure', label: '離校通知' },
   { value: 'purchase', label: '物品購買' },
   { value: 'half_day', label: '半日異動' },
+  { value: 'meal', label: '新增餐點' },
 ];
 
 function statusLabel(s: string) {
@@ -57,6 +58,9 @@ function RequestTypeBadge({ requestType }: { requestType: string }) {
   if (requestType === 'half_day') {
     return <Badge className="bg-purple-600 hover:bg-purple-700">半日異動</Badge>;
   }
+  if (requestType === 'meal') {
+    return <Badge className="bg-amber-500 hover:bg-amber-600">新增餐點</Badge>;
+  }
   return <Badge variant="outline">取消課程</Badge>;
 }
 
@@ -74,6 +78,13 @@ function formatReason(r: any) {
       const dates = (parsed.dates ?? []).join('、');
       const typeLabel = parsed.halfDayType === 'PM' ? '下半日' : '上半日';
       return `日期：${dates || '—'}　${typeLabel}　${parsed.includeMeal ? '含餐' : '不含餐'}`;
+    } catch (e) {}
+  }
+  if (r.request_type === 'meal') {
+    try {
+      const parsed = JSON.parse(r.reason || '{}');
+      const dates = (parsed.dates ?? []).join('、');
+      return `用餐日期：${dates || '—'}`;
     } catch (e) {}
   }
   return r.reason ?? '—';
