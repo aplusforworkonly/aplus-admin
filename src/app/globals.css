@@ -128,3 +128,5 @@
     @apply font-sans;
   }
 }
+
+@page { size: A3 landscape; margin: 6mm; }

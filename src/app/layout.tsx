@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="zh-TW" className={`${notoSansTC.variable} h-full antialiased`}>
       <body className="min-h-full flex font-sans">
-        <ConditionalSidebar />
+        <div className="print:hidden"><ConditionalSidebar /></div>
         <main className="flex-1 min-h-screen">{children}</main>
       </body>
     </html>

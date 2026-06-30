@@ -39,7 +39,7 @@ const GRADE_OPTIONS = [
 
 function currentTWAcademicYear(): number {
   const now = new Date();
-  return now.getFullYear() - 1911 - (now.getMonth() < 8 ? 1 : 0);
+  return now.getFullYear() - 1911 - (now.getMonth() < 6 ? 1 : 0);
 }
 
 interface Props {
@@ -100,8 +100,8 @@ export default function StudentForm({ student, teachers = [] }: Props) {
     if (!option) return;
     const current = new Date(form.enrollment_date);
     const monthIdx = current.getMonth(); // 0-indexed
-    // getGrade subtracts 1 from TW year when month < 8 (Jan–Aug); inverse must add it back
-    const newYear = currentTWAcademicYear() - option.value + 1 + 1911 + (monthIdx < 8 ? 1 : 0);
+    // getGrade subtracts 1 from TW year when month < 6 (Jan–Jun); inverse must add it back
+    const newYear = currentTWAcademicYear() - option.value + 1 + 1911 + (monthIdx < 6 ? 1 : 0);
     const month = String(monthIdx + 1).padStart(2, '0');
     const day = String(current.getDate()).padStart(2, '0');
     setForm((p) => ({ ...p, enrollment_date: `${newYear}-${month}-${day}` }));
