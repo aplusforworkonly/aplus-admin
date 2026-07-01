@@ -74,6 +74,8 @@ export default function TeacherLeaveForm({
     setSelectedCancelLeaveId(null);
     setCancelReason('');
     setCancellableLeaves([]);
+    setCancelPartialStart('');
+    setCancelPartialEnd('');
     if (requestType === 'cancel' && studentId) {
       startCancelLeavesTransition(async () => {
         const result = await getStudentCancellableLeaves(studentId);
@@ -112,6 +114,8 @@ export default function TeacherLeaveForm({
   const [selectedCancelLeaveId, setSelectedCancelLeaveId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLeavesLoading, startCancelLeavesTransition] = useTransition();
+  const [cancelPartialStart, setCancelPartialStart] = useState('');
+  const [cancelPartialEnd, setCancelPartialEnd] = useState('');
 
   // 購買物品專用
   const [purchaseItem, setPurchaseItem] = useState('T-shirt$250');
@@ -143,6 +147,8 @@ export default function TeacherLeaveForm({
     setSelectedCancelLeaveId(null);
     setCancelReason('');
     setCancellableLeaves([]);
+    setCancelPartialStart('');
+    setCancelPartialEnd('');
     if (val && requestType === 'course') {
       startEnrollmentTransition(async () => {
         const result = await getStudentEnrollments(val);
@@ -178,6 +184,8 @@ export default function TeacherLeaveForm({
     setSelectedCancelLeaveId(null);
     setCancelReason('');
     setCancellableLeaves([]);
+    setCancelPartialStart('');
+    setCancelPartialEnd('');
     setHalfDayDates([]);
     setHalfDayType('AM');
     setHalfDayIncludeMeal(false);
@@ -245,7 +253,13 @@ export default function TeacherLeaveForm({
           await submitCancelRequest({ teacherId, studentId, courseId: null, reason: payload, requestType: 'departure' });
         } else if (requestType === 'cancel') {
           if (!selectedCancelLeaveId) throw new Error('請選擇要取消的請假申請');
-          await submitCancellationRequest(selectedCancelLeaveId, teacherId, cancelReason);
+          await submitCancellationRequest(
+            selectedCancelLeaveId,
+            teacherId,
+            cancelReason,
+            cancelPartialStart || undefined,
+            cancelPartialEnd || undefined,
+          );
         } else if (requestType === 'half_day') {
           await submitCancelRequest({
             teacherId,
@@ -507,6 +521,40 @@ export default function TeacherLeaveForm({
               </div>
             )}
           </div>
+          {selectedCancelLeaveId && (() => {
+            const sel = cancellableLeaves.find(l => l.id === selectedCancelLeaveId);
+            if (!sel) return null;
+            const origStart = sel.leave_date;
+            const origEnd = sel.leave_date_end ?? sel.leave_date;
+            const isRange = origStart !== origEnd;
+            if (!isRange) return null;
+            return (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">取消哪幾天
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">（不填則取消全部 {origStart} ～ {origEnd}）</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={cancelPartialStart || origStart}
+                    min={origStart}
+                    max={cancelPartialEnd || origEnd}
+                    onChange={(e) => setCancelPartialStart(e.target.value)}
+                    className={inputCls}
+                  />
+                  <span className="text-sm text-muted-foreground shrink-0">～</span>
+                  <input
+                    type="date"
+                    value={cancelPartialEnd || origEnd}
+                    min={cancelPartialStart || origStart}
+                    max={origEnd}
+                    onChange={(e) => setCancelPartialEnd(e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            );
+          })()}
           <div className="space-y-1">
             <p className="text-sm font-medium">取消原因（選填）</p>
             <textarea

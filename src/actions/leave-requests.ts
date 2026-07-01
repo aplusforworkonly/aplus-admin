@@ -53,25 +53,32 @@ export async function approveLeaveRequest(id: string) {
       .single();
 
     if (original?.status === 'approved') {
+      // 用取消申請自己的日期範圍刪除，支援部分取消
       await supabase.from('student_leaves').delete()
-        .eq('student_id', original.student_id)
-        .gte('leave_date', original.leave_date)
-        .lte('leave_date', original.leave_date_end ?? original.leave_date);
+        .eq('student_id', req.student_id)
+        .gte('leave_date', req.leave_date)
+        .lte('leave_date', req.leave_date_end ?? req.leave_date);
+
+      // 只有完整取消才把原始假單標為 cancelled
+      const origEnd = original.leave_date_end ?? original.leave_date;
+      const cancelEnd = req.leave_date_end ?? req.leave_date;
+      const isFullCancel = req.leave_date === original.leave_date && cancelEnd === origEnd;
+      if (isFullCancel) {
+        await supabase.from('leave_requests').update({
+          status: 'cancelled',
+          handled_by: handledBy,
+          handled_at: now,
+        }).eq('id', req.ref_request_id);
+
+        await supabase.from('request_audit_log').insert({
+          request_table: 'leave_requests',
+          request_id: req.ref_request_id,
+          from_status: original.status,
+          to_status: 'cancelled',
+          handled_by: handledBy,
+        });
+      }
     }
-
-    await supabase.from('leave_requests').update({
-      status: 'cancelled',
-      handled_by: handledBy,
-      handled_at: now,
-    }).eq('id', req.ref_request_id);
-
-    await supabase.from('request_audit_log').insert({
-      request_table: 'leave_requests',
-      request_id: req.ref_request_id,
-      from_status: original?.status ?? 'approved',
-      to_status: 'cancelled',
-      handled_by: handledBy,
-    });
   }
 
   await supabase.from('leave_requests').update({
@@ -160,17 +167,11 @@ export async function cancelLeaveRequest(id: string) {
 export async function submitCancellationRequest(
   refRequestId: string,
   teacherId: string,
-  reason: string
+  reason: string,
+  cancelStartDate?: string,
+  cancelEndDate?: string,
 ) {
   const supabase = createServerClient();
-
-  const { count } = await supabase
-    .from('leave_requests')
-    .select('id', { count: 'exact', head: true })
-    .eq('ref_request_id', refRequestId)
-    .eq('request_type', '取消請假')
-    .eq('status', 'pending');
-  if ((count ?? 0) > 0) throw new Error('已有取消申請審核中，請等待行政處理');
 
   const { data: original } = await supabase
     .from('leave_requests')
@@ -179,12 +180,24 @@ export async function submitCancellationRequest(
     .single();
   if (!original) throw new Error('找不到原始請假申請');
 
+  const effectiveStart = cancelStartDate ?? original.leave_date;
+  const effectiveEnd = cancelEndDate ?? original.leave_date_end;
+
+  const { count } = await supabase
+    .from('leave_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('ref_request_id', refRequestId)
+    .eq('request_type', '取消請假')
+    .eq('status', 'pending')
+    .eq('leave_date', effectiveStart);
+  if ((count ?? 0) > 0) throw new Error('已有相同日期的取消申請審核中，請等待行政處理');
+
   const { error } = await supabase.from('leave_requests').insert({
     request_type: '取消請假',
     student_id: original.student_id,
     teacher_id: teacherId,
-    leave_date: original.leave_date,
-    leave_date_end: original.leave_date_end,
+    leave_date: effectiveStart,
+    leave_date_end: effectiveEnd,
     leave_type: original.leave_type,
     reason: reason || '家長通知取消請假',
     ref_request_id: refRequestId,
