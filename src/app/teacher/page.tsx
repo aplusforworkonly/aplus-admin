@@ -70,7 +70,7 @@ export default async function TeacherPage(props: {
       .order('name'),
     supabase
       .from('student_requests')
-      .select('id, status, request_type, reason, created_at, students(name, english_name), courses(name)')
+      .select('id, status, request_type, reason, handled_note, created_at, students(name, english_name), courses(name)')
       .eq('teacher_id', targetTeacher.id)
       .order('created_at', { ascending: false }),
     supabase
@@ -186,6 +186,7 @@ export default async function TeacherPage(props: {
       studentEnglishName: r.students?.english_name ?? null,
       detail: detailStr,
       reason: reasonStr,
+      handledNote: r.handled_note ?? null,
       created_at: r.created_at,
     };
   });

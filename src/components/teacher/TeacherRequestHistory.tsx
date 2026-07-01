@@ -11,6 +11,7 @@ type RequestEntry = {
   studentEnglishName?: string | null;
   detail: string | null;
   reason: string;
+  handledNote?: string | null;
   created_at: string;
 };
 
@@ -108,6 +109,11 @@ function RequestTable({
               <div className="p-4 space-y-3">
                 {r.detail && <p className="text-xs text-muted-foreground">{r.detail}</p>}
                 {r.reason && <p className="text-sm text-slate-700 bg-slate-50/50 p-2.5 rounded-md border border-slate-100">{r.reason}</p>}
+                {r.status === 'rejected' && r.handledNote && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-100 px-2.5 py-2 rounded-md">
+                    退回原因：{r.handledNote}
+                  </p>
+                )}
                 <p className="text-xs text-slate-400 font-mono mt-1">{formatDate(r.created_at)}</p>
                 <CancelAction row={r} teacherId={teacherId} cancellingIds={cancellingIds} canCancel={canCancel} />
               </div>
@@ -151,8 +157,11 @@ function RequestTable({
                       <p className="text-xs text-muted-foreground mt-0.5">{r.detail}</p>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-48 truncate">
-                    {r.reason || '—'}
+                  <TableCell className="text-sm text-muted-foreground max-w-48">
+                    <span className="block truncate">{r.reason || '—'}</span>
+                    {r.status === 'rejected' && r.handledNote && (
+                      <span className="block text-xs text-red-500 mt-0.5 truncate">退回：{r.handledNote}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <StatusBadge status={r.status} />
