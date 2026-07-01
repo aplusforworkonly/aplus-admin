@@ -72,6 +72,8 @@ export default function TeacherLeaveForm({
   // 防呆：切換 tab 時立即清空取消請假選取狀態，避免舊資料殘留
   useEffect(() => {
     setSelectedCancelLeaveId(null);
+    setSelectedLeaveOrigStart('');
+    setSelectedLeaveOrigEnd('');
     setCancelReason('');
     setCancellableLeaves([]);
     setCancelPartialStart('');
@@ -112,6 +114,8 @@ export default function TeacherLeaveForm({
   // 取消請假專用
   const [cancellableLeaves, setCancellableLeaves] = useState<CancellableLeave[]>([]);
   const [selectedCancelLeaveId, setSelectedCancelLeaveId] = useState<string | null>(null);
+  const [selectedLeaveOrigStart, setSelectedLeaveOrigStart] = useState('');
+  const [selectedLeaveOrigEnd, setSelectedLeaveOrigEnd] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLeavesLoading, startCancelLeavesTransition] = useTransition();
   const [cancelPartialStart, setCancelPartialStart] = useState('');
@@ -145,6 +149,8 @@ export default function TeacherLeaveForm({
     setStudentEnrollments([]);
     // 防呆：切換學生時立即清空取消請假的選取狀態
     setSelectedCancelLeaveId(null);
+    setSelectedLeaveOrigStart('');
+    setSelectedLeaveOrigEnd('');
     setCancelReason('');
     setCancellableLeaves([]);
     setCancelPartialStart('');
@@ -182,6 +188,8 @@ export default function TeacherLeaveForm({
     setPurchaseQty(1);
     setDepartureDate('');
     setSelectedCancelLeaveId(null);
+    setSelectedLeaveOrigStart('');
+    setSelectedLeaveOrigEnd('');
     setCancelReason('');
     setCancellableLeaves([]);
     setCancelPartialStart('');
@@ -504,7 +512,14 @@ export default function TeacherLeaveForm({
                         value={l.id}
                         disabled={isAlreadyCancelling}
                         checked={selectedCancelLeaveId === l.id}
-                        onChange={() => !isAlreadyCancelling && setSelectedCancelLeaveId(l.id)}
+                        onChange={() => {
+                          if (isAlreadyCancelling) return;
+                          setSelectedCancelLeaveId(l.id);
+                          setSelectedLeaveOrigStart(l.leave_date);
+                          setSelectedLeaveOrigEnd(l.leave_date_end ?? l.leave_date);
+                          setCancelPartialStart('');
+                          setCancelPartialEnd('');
+                        }}
                         className="mt-0.5 accent-teal-700"
                       />
                       <span className="text-sm leading-snug">
@@ -521,40 +536,34 @@ export default function TeacherLeaveForm({
               </div>
             )}
           </div>
-          {selectedCancelLeaveId && (() => {
-            const sel = cancellableLeaves.find(l => l.id === selectedCancelLeaveId);
-            if (!sel) return null;
-            const origStart = sel.leave_date;
-            const origEnd = sel.leave_date_end ?? sel.leave_date;
-            const isRange = origStart !== origEnd;
-            if (!isRange) return null;
-            return (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">取消哪幾天
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">（不填則取消全部 {origStart} ～ {origEnd}）</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={cancelPartialStart || origStart}
-                    min={origStart}
-                    max={cancelPartialEnd || origEnd}
-                    onChange={(e) => setCancelPartialStart(e.target.value)}
-                    className={inputCls}
-                  />
-                  <span className="text-sm text-muted-foreground shrink-0">～</span>
-                  <input
-                    type="date"
-                    value={cancelPartialEnd || origEnd}
-                    min={cancelPartialStart || origStart}
-                    max={origEnd}
-                    onChange={(e) => setCancelPartialEnd(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
+          {selectedCancelLeaveId && selectedLeaveOrigStart && selectedLeaveOrigStart !== selectedLeaveOrigEnd && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium">取消哪幾天
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  （不填則取消全部 {selectedLeaveOrigStart} ～ {selectedLeaveOrigEnd}）
+                </span>
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={cancelPartialStart || selectedLeaveOrigStart}
+                  min={selectedLeaveOrigStart}
+                  max={cancelPartialEnd || selectedLeaveOrigEnd}
+                  onChange={(e) => setCancelPartialStart(e.target.value)}
+                  className={inputCls}
+                />
+                <span className="text-sm text-muted-foreground shrink-0">～</span>
+                <input
+                  type="date"
+                  value={cancelPartialEnd || selectedLeaveOrigEnd}
+                  min={cancelPartialStart || selectedLeaveOrigStart}
+                  max={selectedLeaveOrigEnd}
+                  onChange={(e) => setCancelPartialEnd(e.target.value)}
+                  className={inputCls}
+                />
               </div>
-            );
-          })()}
+            </div>
+          )}
           <div className="space-y-1">
             <p className="text-sm font-medium">取消原因（選填）</p>
             <textarea
