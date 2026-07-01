@@ -292,7 +292,7 @@ export async function approveCancelRequest(id: string, isCashPaid?: boolean) {
   revalidatePath('/admin/classes/matrix');
 }
 
-export async function rejectCancelRequest(id: string) {
+export async function rejectCancelRequest(id: string, note?: string) {
   const supabase = createServerClient();
 
   const { data: req } = await supabase
@@ -306,6 +306,7 @@ export async function rejectCancelRequest(id: string) {
     status: 'rejected',
     handled_by: handledBy,
     handled_at: new Date().toISOString(),
+    ...(note ? { handled_note: note } : {}),
   }).eq('id', id);
   await supabase.from('request_audit_log').insert({
     request_table: 'student_requests',
